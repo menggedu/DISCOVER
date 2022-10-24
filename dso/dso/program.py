@@ -14,7 +14,7 @@ from dso.functions import PlaceholderConstant
 from dso.const import make_const_optimizer
 from dso.utils import cached_property
 import dso.utils as U
-from dso.stridge import STRidge,Node,build_tree
+from dso.stridge import STRidge,Node,build_tree,unsafe_execute
 
 
 def _finish_tokens(tokens):
@@ -476,52 +476,8 @@ class Program(object):
         from dso.execute import python_execute
         execute_function        = python_execute
         Program.have_cython     = False
-
-        Program.protected = False
-        class InvalidLog():
-            """Log class to catch and record numpy warning messages"""
-
-            def __init__(self):
-                self.error_type = None # One of ['divide', 'overflow', 'underflow', 'invalid']
-                self.error_node = None # E.g. 'exp', 'log', 'true_divide'
-                self.new_entry = False # Flag for whether a warning has been encountered during a call to Program.execute()
-
-            def write(self, message):
-                """This is called by numpy when encountering a warning"""
-
-                if not self.new_entry: # Only record the first warning encounter
-                    message = message.strip().split(' ')
-                    self.error_type = message[1]
-                    self.error_node = message[-1]
-                self.new_entry = True
-
-            def update(self):
-                """If a floating-point error was encountered, set Program.invalid
-                to True and record the error type and error node."""
-
-                if self.new_entry:
-                    self.new_entry = False
-                    return True, self.error_type, self.error_node
-                else:
-                    return False, None, None
-
-
-        invalid_log = InvalidLog()
-        np.seterrcall(invalid_log) # Tells numpy to call InvalidLog.write() when encountering a warning
-
-        # Define closure for execute function
-        def unsafe_execute(traversal, u, x):
-            """This is a wrapper for execute_function. If a floating-point error
-            would be hit, a warning is logged instead, p.invalid is set to True,
-            and the appropriate nan/inf value is returned. It's up to the task's
-            reward function to decide how to handle nans/infs."""
-
-            with np.errstate(all='log'):
-                y = execute_function(traversal, u,x)
-                invalid, error_node, error_type = invalid_log.update()
-                return y, invalid, error_node, error_type
-
         Program.execute_function = unsafe_execute
+        Program.protected = False
 
     @cached_property
     def r_ridge(self):

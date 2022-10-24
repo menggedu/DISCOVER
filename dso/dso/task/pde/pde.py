@@ -78,13 +78,6 @@ class PDETask(HierarchicalTask):
         self.u,self.x,ut,sym_true, n_input_var = load_class(dataset)
         self.ut=ut
         self.sym_true = sym_true
-        # self.dx = self.x[2]-self.x[1]
-        # self.dt = self.t[1]-self.t[0]
-        # n, m = self.u.shape
-        # self.ut = np.zeros((n, m))
-        # for idx in range(n):
-        #     self.ut[idx, :] = FiniteDiff(self.u[idx, :], self.dt)
-
         self.ut = self.ut.reshape(-1,1)
         # Save time by only computing data variances once
         self.var_y_test = np.var(self.ut)

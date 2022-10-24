@@ -1,5 +1,5 @@
-post_name=500
-folder_name=e_1_rs_4
+
+folder_name=base
 
 folder=${folder_name}
 echo ${folder}
@@ -12,7 +12,8 @@ mkdir -p ./log/${folder}
 
 job_name=divide
 echo ${job_name}
-python test_pde.py windows ${job_name} ${folder}> ./log/${folder}/result_${job_name}.log 2>&1
+python test_pde.py ${job_name} ${folder}
+# > ./log/${folder}/result_${job_name}.log 2>&1
 
 # job_name=burgers
 # echo ${job_name}

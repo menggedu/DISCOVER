@@ -252,7 +252,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
     print("mse: ", result_true['nmse_test'])
     print(f"reward: {p_true_r}")
     print("success or  not :", result_true['success'])
-    import pdb;pdb.set_trace()
+    # import pdb;pdb.set_trace()
     start_time = time.time()
     st = time.time()
     if verbose:

@@ -9,7 +9,7 @@ The working mechanisms of complex natural systems tend to abide by concise and p
 The installation details can be found in [DSO](https://github.com/brendenpetersen/deep-symbolic-optimization), we recommond the Installation of all tasks.
 
 # Run
-Current version of the code is a pre-released version and can not be run durectly. To be updated soon.
+ To be updated soon.
 
 
 

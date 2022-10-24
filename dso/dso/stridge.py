@@ -3,6 +3,49 @@ import numpy as np
 
 from dso.execute import python_execute
 
+class InvalidLog():
+    """Log class to catch and record numpy warning messages"""
+
+    def __init__(self):
+        self.error_type = None # One of ['divide', 'overflow', 'underflow', 'invalid']
+        self.error_node = None # E.g. 'exp', 'log', 'true_divide'
+        self.new_entry = False # Flag for whether a warning has been encountered during a call to Program.execute()
+
+    def write(self, message):
+        """This is called by numpy when encountering a warning"""
+
+        if not self.new_entry: # Only record the first warning encounter
+            message = message.strip().split(' ')
+            self.error_type = message[1]
+            self.error_node = message[-1]
+        self.new_entry = True
+
+    def update(self):
+        """If a floating-point error was encountered, set Program.invalid
+        to True and record the error type and error node."""
+
+        if self.new_entry:
+            self.new_entry = False
+            return True, self.error_type, self.error_node
+        else:
+            return False, None, None
+
+
+invalid_log = InvalidLog()
+np.seterrcall(invalid_log) # Tells numpy to call InvalidLog.write() when encountering a warning
+
+# Define closure for execute function
+def unsafe_execute(traversal, u, x):
+    """This is a wrapper for execute_function. If a floating-point error
+    would be hit, a warning is logged instead, p.invalid is set to True,
+    and the appropriate nan/inf value is returned. It's up to the task's
+    reward function to decide how to handle nans/infs."""
+
+    with np.errstate(all='log'):
+        y = python_execute(traversal, u,x)
+        invalid, error_node, error_type = invalid_log.update()
+        return y, invalid, error_node, error_type
+
 # Possible library elements that sympy capitalizes
 capital = ["add", "mul", "pow"]
 
@@ -57,16 +100,21 @@ def build_tree_new(traversal):
 
 
 class STRidge(object):
+    execute_function = None 
     def __init__(self, traversal,default_terms =[]):
         self.traversal = traversal
         self.traversal_copy = traversal.copy()
+        # self.set_execute_function()
         self.term_values = []
         self.terms=[]
         self.invalid = False
         self.w_sym = []
         self.default_terms = [build_tree_new(dt) for dt in default_terms]
         self.split_forest()
-
+        
+    def set_execute_function(self):
+        pass
+        
     def split_forest(self):
         root = self.rebuild_tree()
         
@@ -141,15 +189,15 @@ class STRidge(object):
 
     def calculate(self,u,x,ut):
         results = []
-        # import pdb;pdb.set_trace()
+       
         for traversal in self.terms_token:
-            # import pdb;pdb.set_trace()
+        
             if 'diff' in repr(traversal) and 'u' not in repr(traversal):
                 return 0,[0],True,'no_u','no_u'
-            # st = time.time()
-            result, invalid, error_node, error_type = python_execute(traversal, u, x)
-            # et = time.time()
-            # print(f"{traversal} cost time :{et-st}")
+            
+            # import pdb;pdb.set_trace()
+            result, invalid, error_node, error_type =unsafe_execute(traversal, u, x)# python_execute(traversal, u, x)
+        
             if invalid:
                 return 0,[0],invalid,error_node,error_type
             results.append(result.reshape(-1))
