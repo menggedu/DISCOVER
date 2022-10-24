@@ -24,7 +24,9 @@ class StatsLogger():
 
     def __init__(self, sess, output_file, save_summary=False, save_all_epoch=False, hof=100,
                  save_pareto_front=True, save_positional_entropy=False, save_top_samples_per_batch=0,
-                 save_cache=False, save_cache_r_min=0.9, save_freq=1, save_token_count=False):
+                 save_cache=False, save_cache_r_min=0.9, save_freq=1, save_token_count=False,
+                 save_rewards = False, save_all_rewards = False
+                 ):
 
         """"
         sess : tf.Session
@@ -74,8 +76,12 @@ class StatsLogger():
         self.save_cache = save_cache
         self.save_cache_r_min = save_cache_r_min
         self.save_token_count = save_token_count
+        self.save_rewards = save_rewards
+        self.save_all_rewards = save_all_rewards
+        # self.save_function_terms = save_function_terms
         self.all_r = []   # save all R separately to keep backward compatibility with a generated file.
-
+        self.all_r_valid = []
+        
         if save_freq is None:
             self.buffer_frequency = 1
         elif save_freq < 1:
@@ -96,7 +102,8 @@ class StatsLogger():
         if self.output_file is not None:
             os.makedirs(os.path.dirname(self.output_file), exist_ok=True)
             prefix, _ = os.path.splitext(self.output_file)
-            self.all_r_output_file = "{}_all_r.npy".format(prefix)
+            self.all_r_output_file = "{}_all_r.csv".format(prefix)
+            self.all_r_output_valid_file = "{}_all_valid_r.csv".format(prefix)
             self.all_info_output_file = "{}_all_info.csv".format(prefix)
             self.hof_output_file = "{}_hof.csv".format(prefix)
             self.pf_output_file = "{}_pf.csv".format(prefix)
@@ -104,6 +111,7 @@ class StatsLogger():
             self.top_samples_per_batch_output_file = "{}_top_samples_per_batch.csv".format(prefix)
             self.cache_output_file = "{}_cache.csv".format(prefix)
             self.token_counter_output_file = "{}_token_count.csv".format(prefix)
+            self.save_function_term_out_file = "{}_function_terms_per_batch.csv".format(prefix)
             with open(self.output_file, 'w') as f:
                 # r_best : Maximum across all iterations so far
                 # r_max : Maximum across this iteration's batch
@@ -142,7 +150,7 @@ class StatsLogger():
                     headers = ["epoch",
                                 "r",
                                 "l",
-                                "invalid"]
+                                ]
                     f.write("{}\n".format(",".join(headers)))
             if self.save_token_count:
                 with open(self.token_counter_output_file, 'w') as f:
@@ -170,7 +178,7 @@ class StatsLogger():
         else:
             self.summary_writer = None
 
-    def save_stats(self, r_full, l_full, actions_full, s_full, invalid_full, r, l,
+    def save_stats(self, r_full_valid, r_full, l_full, actions_full, s_full, invalid_full, r, l,
                    actions, s, invalid, r_best, r_max, ewma, summaries, epoch, s_history,
                    baseline, epoch_walltime, programs):
         """
@@ -237,7 +245,6 @@ class StatsLogger():
                               [epoch]*len(r_full),
                               r_full,
                               l_full,
-                              invalid_full
                               ]).transpose()
             df = pd.DataFrame(all_epoch_stats)
             df.to_csv(self.buffer_all_programs, mode='a', header=False, index=False, line_terminator='\n')
@@ -255,10 +262,13 @@ class StatsLogger():
             self.flush_buffers()
 
         #Backwards compatibility of all_r numpy file
-        if self.save_all_epoch:
+        if self.save_all_rewards:
             self.all_r.append(r_full)
-
-    def save_results(self, positional_entropy, top_samples_per_batch, r_history, pool, n_epochs, n_samples):
+            
+        if self.save_rewards:
+            self.all_r_valid.append(r_full_valid)
+        
+    def save_results(self, positional_entropy, top_samples_per_batch,funcion_info_per_batch, r_history, pool, n_epochs, n_samples):
         """
         Saves stats that are available only after all epochs are finished
         :param positional_entropy: evolution of positional_entropy for all epochs
@@ -273,11 +283,17 @@ class StatsLogger():
         self.flush_buffers()
 
         if self.save_all_epoch:
-            #Kept all_r numpy file for backwards compatibility.
+            # Kept all_r numpy file for backwards compatibility.
             with open(self.all_r_output_file, 'ab') as f:
                 all_r = np.array(self.all_r, dtype=np.float32)
                 np.save(f, all_r)
-
+        if self.save_rewards:
+            all_r_valid = pd.DataFrame(self.all_r_valid)                            
+            all_r_valid.to_csv(self.all_r_output_valid_file)  
+        if self.save_all_rewards:     
+            all_r = pd.DataFrame(self.all_r)                            
+            all_r.to_csv(self.all_r_output_file)
+        
         if self.save_positional_entropy:
             with open(self.positional_entropy_output_file, 'ab') as f:
                 np.save(f, positional_entropy)
@@ -287,6 +303,9 @@ class StatsLogger():
                                          columns=['Epoch', 'Reward', 'Sequence'])
             df_topsamples.to_csv(self.top_samples_per_batch_output_file)
 
+            function_samples = pd.DataFrame(funcion_info_per_batch, 
+                                            columns = ['Epoch', 'Functions', 'Reward', 'coefficients'])
+            function_samples.to_csv(self.save_function_term_out_file)
         # Save the hall of fame
         if self.hof is not None and self.hof > 0:
             # For stochastic Tasks, average each unique Program's r_history,
@@ -406,7 +425,31 @@ class StatsLogger():
             token_counter[token] for token in token_counter.keys()
         ]], dtype=np.int)
         np.savetxt(self.buffer_token_stats, stats, fmt='%i', delimiter=',')
-
+        
+    def save_function_terms(self,functions):
+        df_functions = pd.DataFrame(functions,
+                                        columns=['Epoch', 'terms', 'rewards'])
+        df_functions.to_csv(self.top_samples_per_batch_output_file)
+        
+        function_id = {}
+        start_id = 0
+        function_locs = []
+        for function_terms in functions:
+            function_loc = []
+            for i in range(len(function_terms)):
+                function = function_terms[i]
+                if function not in function_id:
+                    function_id[function] = start_id
+                    start_id+=1
+                function_loc.append(function_id[function])
+                
+            function_locs.append(function_loc)
+        function_arrays = np.zeros((len(function_terms),start_id) )
+        for i in range(len(functions)):
+            for loc in function_locs[i]:
+                function_arrays[i, loc]=1
+        np.save('best_function_arrary.npy',function_arrays )    
+        
     def flush_buffers(self):
         """Write all available buffers to file."""
         if self.output_file is not None:

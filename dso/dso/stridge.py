@@ -1,7 +1,9 @@
 import numpy as np
+import math
+import torch
 
-
-from dso.execute import python_execute
+from dso.task.pde.utils_noise import tensor2np
+from dso.execute import python_execute, python_execute_torch
 
 class InvalidLog():
     """Log class to catch and record numpy warning messages"""
@@ -45,11 +47,23 @@ def unsafe_execute(traversal, u, x):
         y = python_execute(traversal, u,x)
         invalid, error_node, error_type = invalid_log.update()
         return y, invalid, error_node, error_type
+    
+def unsafe_execute_torch(traversal, u, x):
+    
+    with np.errstate(all='log'):
+        y = python_execute_torch(traversal, u,x)
+        # if y == False:
+        #     return 0, True,'no_grad','no_grad'
+        invalid, error_node, error_type = invalid_log.update()
+        return y, invalid, error_node, error_type
+
 
 # Possible library elements that sympy capitalizes
 capital = ["add", "mul", "pow"]
 
 
+
+            
 class Node(object):
     """Basic tree class supporting printing"""
 
@@ -97,11 +111,39 @@ def build_tree_new(traversal):
 
     return node
 
+illegal_type = ['no_u', 'spatial_error', 'depth_limit']
 
+class Regulations(object):
+    def __init__(self, max_depth= 4 ):
+        self.max_depth = max_depth
+        
+    def apply_regulations(self, x, traversal, terms_token, depth):
+        # symmetric regulations
+        dim = len(x)
+        num = repr(traversal).count('x1')
+        omit_list = []
+        error_list= []
+        # import pdb;pdb.set_trace()
+        for i in range(1,dim):
+            new_num = repr(traversal).count(f'x{i+1}')
+            if new_num!= num:
+                error_list.append('spatial_error')
+
+        for i, traversal in enumerate(terms_token):
+            if ('diff' in repr(traversal) or 'Diff' in repr(traversal)) and 'u,' not in repr(traversal):
+                error_list.append('no_u')  
+                omit_list.append(i)
+
+            if depth[i] > self.max_depth:
+                error_list.append('depth_limit')
+                omit_list.append(i)
+        return omit_list,error_list
 
 class STRidge(object):
-    execute_function = None 
-    def __init__(self, traversal,default_terms =[]):
+    execute_function = None
+    cache = {}
+    def __init__(self, traversal, default_terms =[], noise_level=0,
+                 spatial_error = False):
         self.traversal = traversal
         self.traversal_copy = traversal.copy()
         # self.set_execute_function()
@@ -111,27 +153,31 @@ class STRidge(object):
         self.w_sym = []
         self.default_terms = [build_tree_new(dt) for dt in default_terms]
         self.split_forest()
+        self.regulation = Regulations()
+        self.omit_terms = []
+        self.noise_level = noise_level
+        self.spatial_error = spatial_error
         
     def set_execute_function(self):
         pass
         
     def split_forest(self):
         root = self.rebuild_tree()
-        
+    
         def split_sum(root):
-            """ split the traversal node according to the '+‘, '-'  """
+            """ split the traversal node according to the '+', '-'  """
             # import pdb;pdb.set_trace()
-            if root.val not in ['add','sub']:
+            if root.val not in ['add','sub', 'add_t', 'sub_t']:
                 
                 return [root]
 
-            if root.val == 'sub':
+            if 'sub' in root.val:
 
                 if root.symbol == 1:
                     root.children[1].symbol *=-1
                 else:
                     #
-                    if root.val == 'sub':    
+                    if 'sub' in root.val:    
                         root.children[0].symbol*=-1
                         root.children[1].symbol*=-1
             
@@ -172,8 +218,56 @@ class STRidge(object):
         self.terms.extend(self.default_terms)
         
         self.terms_token = [preorder_traverse(node) for node in self.terms]
-        # self.terms_token.extend(self.default_terms)
+        self.terms_len = [len(tokens) for tokens in self.terms_token]
+ 
+   
+        def max_depth(root):
+            """calculate the max depth of subtreees
 
+            Args:
+                root (_type_): root node
+
+            Returns:
+                _type_: max depth of subtrees (function terms)
+            """
+            max_num = 0
+          
+            for children in root.children:
+                max_num = max(max_depth(children), max_num)
+            
+            return max_num+1
+       
+        # self.depth = [max_depth(node) for node in self.terms]
+        self.depth = [np.ceil(math.log(length, 2)) for length in self.terms_len]
+        
+    def build_tree(self,traversal):
+        stack = []
+        leaf_node = None
+        while len(traversal) != 0:
+            
+            if leaf_node is None:
+                op = traversal.pop(0) 
+                node_arity=op.arity
+                node = Node(op)
+            else:
+                node = leaf_node
+                node_arity = 0
+            if node_arity>0:
+                stack.append((node, node_arity))
+            else:
+                leaf_node=node
+                if stack!=[]:
+                    last_op,last_arity = stack.pop(-1)
+                    last_op.children.append(node)
+                    last_arity-=1
+                    if last_arity > 0:
+                        stack.append((last_op,last_arity))
+                        leaf_node=None  
+                    else:
+                        leaf_node = last_op
+                
+        return leaf_node
+    
     def rebuild_tree(self):
         """Recursively builds tree from pre-order traversal"""
 
@@ -187,38 +281,141 @@ class STRidge(object):
 
         return node
 
-    def calculate(self,u,x,ut):
+    def calculate(self,u,x,ut, test=False, execute_function = unsafe_execute):
         results = []
-       
-        for traversal in self.terms_token:
         
-            if 'diff' in repr(traversal) and 'u' not in repr(traversal):
-                return 0,[0],True,'no_u','no_u'
+        omit_list, err_list = self.regulation.apply_regulations(x,self.traversal_copy, self.terms_token, self.depth)
+        if len(err_list)>0:
+            if len(err_list) == 1 and 'spatial_error' in err_list and self.spatial_error:
+                invalid=True
+                return 0,[0],invalid,'spatial_error','spatial_error',None
+            else:
+                invalid = True
+                return 0,[0],invalid,'+'.join(err_list),'+'.join(err_list),None
+        
+        
+        for i,traversal in enumerate(self.terms_token):
             
-            # import pdb;pdb.set_trace()
-            result, invalid, error_node, error_type =unsafe_execute(traversal, u, x)# python_execute(traversal, u, x)
-        
+            result, invalid, error_node, error_type = execute_function(traversal, u, x)
+            # result = result[2:-2,1:] #RRE
             if invalid:
-                return 0,[0],invalid,error_node,error_type
+                return 0,[0],invalid,error_node,error_type,None
+            
+            if torch.is_tensor(result):
+                    result = tensor2np(result)
+            else:
+                # pass
+                if self.noise_level>0:
+                    r_shape = result.shape
+                    low_bound = [ math.floor(0.02*dim) for dim in r_shape ]
+                    up_bound = [ math.ceil(0.98*dim) for dim in r_shape ]
+                    if len(r_shape)==2:
+                        # result = result[low_bound[0]:up_bound[0],low_bound[1]:up_bound[1]]
+                        result = result[5:-5,5:-5]
+                    else:
+                        
+                        if not test:
+                            result = result[low_bound[0]:up_bound[0],low_bound[1]:up_bound[1], low_bound[2]:up_bound[2]]
+                        else:
+                            result = result[:,low_bound[1]:up_bound[1], low_bound[2]:up_bound[2]]
+                
             results.append(result.reshape(-1))
+        # import pdb;pdb.set_trace()
+        # empty results
+        if len(results) ==0:
+            invalid =True
+            return 0,[0],invalid,'dim_error','dim_error',None
+        else:
+            result_shape = results[0].shape
+            for res in results[1:]:
+                if res.shape!=result_shape:
+                    invalid =True
+                    return 0,[0],invalid,'dim_error','dim_error',None
 
-        results = np.array(results).T
+        # coefficients filter
+        omit_terms = []
+        omit_terms.extend(omit_list)
+        omit_terms = set(omit_terms)
+        
+        if len(omit_terms)>0:
+            terms_token = [self.terms_token[i] for i in range(len(self.terms_token)) if i not in omit_terms]
+            terms = [self.terms[i] for i in range(len(self.terms)) if i not in omit_terms]
+            results_left = [results[i] for i in range(len(results)) if i not in omit_terms]
+            self.terms = terms
+            self.terms_token = terms_token
+            results = np.array(results_left).T 
+            invalid = True   
+            self.omit_terms.extend(omit_terms)
+        else:
+            results_left = results
+            
+            results = np.array(results).T
+        # coefficients calculation
+
         try:
             
- 
             w_best = np.linalg.lstsq(results, ut)[0]
-   
         except Exception as e:
-            # print(e)
-            # import pdb;pdb.set_trace()
             invalid = True
-            return 0, [0], invalid,"bad_str", 'bad_str'
+            return 0, [0], invalid, "bad_str", 'bad_str',None
+        
+        omit_terms2 = []
+        for i in range(len(w_best)):
+            if np.abs(w_best[i])<1e-5 or np.abs(w_best[i])>1e4:
+                return 0, [0], invalid,"small_coe", 'small_coe',None
+                omit_terms2.append(i)
+           
+        # if len(omit_terms2)>0:
+        #     w_best_left = [w_best[i] for i in range(len(w_best)) if i not in omit_terms2]
+        #     terms_token = [self.terms_token[i] for i in range(len(self.terms_token)) if i not in omit_terms2]
+        #     terms = [self.terms[i] for i in range(len(self.terms)) if i not in omit_terms2]
+        #     results_left2 = [results_left[i] for i in range(len(results_left)) if i not in omit_terms2]
+        #     self.terms = terms
+        #     self.terms_token = terms_token
+        #     w_best = np.array(w_best_left)
+        #     results = np.array(results_left2).T 
+        #     invalid = True
 
+        #     for n in omit_terms2:
+        #         bias = 0
+        #         for i in omit_terms:
+        #             if n<=i:
+        #                 bias+=1
+        #         self.omit_terms.append(n+bias)
+        
         y_hat = results.dot(w_best)
         w_best = w_best.reshape(-1).tolist()
-        for i in range(len(w_best)):
-            if np.abs(w_best[i])<1e-5:
-                return 0, [0],True, 'small_coef','small_coef'
-        return y_hat, w_best, False,error_node,error_type
 
+        return y_hat, w_best, invalid,error_node,error_type,results
+    
+    
+    def calculate_RHS(self, u, x, ut, coefs):
+        # automatic differentiation
+        
+        # assert len(coefs) ==  len(self.terms_token)
+        # w = np.array(w).reshape(-1,1)
+        results = []
+        RHS = 0
+        for i,traversal in enumerate(self.terms_token):
+            try:
+                result,_,_,_ = unsafe_execute_torch(traversal, u,x)
+            except Exception as e:
+                print("bad program")
+                return torch.tensor(float('nan'))
+                # import pdb;pdb.set_trace()
+            # import pdb;pdb.set_trace()
+            # result = tensor2np(result)
+            # results.append(result.reshape(-1))
+            results.append(result)
+            
+            # RHS += result*w[i]
+        if isinstance(coefs, list):
+            for i in range(len(coefs)):
+                RHS += results[i]*coefs[i]
+                
+        else:
+            RHS = coefs(results)
+            
+        residual = ut-RHS
+        return residual
            

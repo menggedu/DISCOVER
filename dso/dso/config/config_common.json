@@ -8,12 +8,16 @@
       // Random number seed. Don't forget to change this for multiple runs!
       "seed" : 0
    },
+   //pinn
 
+   "pinn":{
+      "use_pinn": false
+   },
    // Task-specific hyperparameters. See task-specific configs (e.g.
    // config_regression.json) for more info.
    "task" : {
 
-      // Choice of ["regression", "control"].
+      // Choice of ["PDE"].
       "task_type" : null
    },
 
@@ -182,6 +186,10 @@
       // Prevents expressions with no input variables, e.g. sin(1.0 + const).
       "no_inputs" : {
          "on" : false
+      },
+
+      "laplace_child":{
+         "on": false
       },
 
       // Uniform arity prior: the prior probabilities over arities is uniform.

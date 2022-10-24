@@ -234,7 +234,7 @@ class Controller(object):
             initial_obs = task.reset_task(prior)
             
             state_manager.setup_manager(self)
-            # import pdb;pdb.set_trace()
+            
             initial_obs = tf.broadcast_to(initial_obs, [self.batch_size, len(initial_obs)]) # (?, obs_dim)
             initial_obs = state_manager.process_state(initial_obs)
 

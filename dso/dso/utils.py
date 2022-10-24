@@ -9,7 +9,104 @@ import importlib
 import re
 import os
 import pandas as pd
+import torch
+import random
+import matplotlib.pyplot as plt
 
+def criterion(mse, cv, type='multiply'):
+    mse = np.array(mse)
+    cv = np.array(cv)
+    if type == 'multiply':
+        return mse*cv
+    elif type == 'norm_multiply':
+        lamda = 0.1
+        mse_max = np.max(mse, axis =0 )
+        mse_min = np.min(mse,axis = 0)
+        cv_max = np.max(cv, axis = 0)
+        cv_min = np.min(cv, axis = 0)
+        mse_norm = (mse-mse_min)/(mse_max-mse_min)
+        cv_norm = (cv-cv_min)/(cv_max-cv_min)
+        return mse_norm*lamda+ (1-lamda)*cv_norm    
+    else:
+        assert False, "wrong type"
+    
+def draw_criterion(criter , name, save_path):
+    length = len(criter[0])
+    fig = plt.figure(figsize=(10,5))
+    for i in range(len(criter)):
+        plt.plot(np.arange(1, length+1), criter[i], label = f'{i}')
+    plt.xlabel('num test')
+    plt.ylabel(name)
+    plt.legend()
+    # plt.title(name)
+    plt.savefig(save_path+name+'.png')
+        
+def filter_same(p_list):
+    # filter equavriant terms with same mse
+    filter_list = []
+    r_list= []
+    num = 0
+    same_flag = False
+    for p in p_list:
+        r_cur = p.r_ridge
+        
+        for r in r_list:
+            if np.abs(r_cur-r)<1e-5:
+                same_flag = True
+                break
+            
+        if not same_flag:
+            filter_list.append(p)
+            r_list.append(r_cur)
+            num+=1
+        same_flag = False
+    # import pdb;pdb.set_trace()
+    return filter_list
+
+def print_model_summary(nn):
+    total_params = 0
+    
+    for p in nn.parameters():
+        mul_val = np.prod(p.size())
+        total_params+=mul_val
+    return total_params
+
+def R2(y_test, y_pred):
+    SSE = np.sum((y_test - y_pred)**2)          # 残差平方和
+    SST = np.sum((y_test-np.mean(y_test))**2) #总体平方和
+    R_square = 1 - SSE/SST # R^2
+    return R_square
+
+def l2_error(y_true, y_pred):
+    error = np.linalg.norm(y_true-y_pred,2)/np.linalg.norm(y_true,2)   
+    return error
+
+def tensor2np(tensor):
+    array = tensor.cpu().data.numpy()
+    return array
+
+def np2tensor(array, device):
+    return torch.from_numpy(array).float().to(device)
+
+def eval_result(y_pred, y_true):
+
+    y_true = y_true.reshape((-1,1)) 
+    y_pred = y_pred.reshape((-1,1))
+
+    from sklearn.metrics import mean_squared_error
+
+    RMSE = mean_squared_error(y_true, y_pred) ** 0.5
+
+    R_square = R2(y_true, y_pred)
+
+    return RMSE,  R_square
+
+def set_seed(seed):
+    torch.random.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    
 
 def is_float(s):
     """Determine whether the input variable can be cast to float."""
@@ -126,6 +223,7 @@ def empirical_entropy(labels):
 
 def get_duration(start_time):
     return get_human_readable_time(time.time() - start_time)
+
 
 
 def get_human_readable_time(s):

@@ -9,7 +9,7 @@ import tensorflow as tf
 import numpy as np
 
 from dso.program import Program, from_tokens,from_str_tokens
-from dso.utils import empirical_entropy, get_duration, weighted_quantile
+from dso.utils import empirical_entropy, get_duration, weighted_quantile, draw_criterion, filter_same,criterion
 from dso.memory import Batch, make_queue
 from dso.variance import quantile_variance
 from dso.train_stats import StatsLogger
@@ -29,7 +29,7 @@ def work(p):
     return p
 
 
-def learn(sess, controller, pool, gp_controller, output_file,
+def learn(sess, controller, pool, gp_controller, pinn_model, output_file,
           n_epochs=None, n_samples=2000000, batch_size=1000, complexity="token",default_terms = [],
           const_optimizer="scipy", const_params=None, alpha=0.5,
           epsilon=0.05, n_cores_batch=1, verbose=True, save_summary=False,
@@ -37,8 +37,13 @@ def learn(sess, controller, pool, gp_controller, output_file,
           b_jumpstart=False, early_stopping=True, hof=100, eval_all=False,
           save_pareto_front=True, debug=0, use_memory=False, memory_capacity=1e3,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
-          save_top_samples_per_batch=0, save_cache=False,
-          save_cache_r_min=0.9, save_freq=None, save_token_count=False):
+          save_top_samples_per_batch=0, save_cache=False, 
+          save_rewards = True,
+          save_cache_r_min=0.9, save_freq=None, save_token_count=False,
+          save_all_rewards = False, 
+          use_start_size=False,
+          stability_selection = False
+          ):
 
     """
     Executes the main training loop.
@@ -163,6 +168,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
         Statistics are flushed to file every save_freq epochs (default == 1). If < 0, uses save_freq = inf
 
     save_token_count : bool
+    
         Whether to save token counts each batch.
 
     Returns
@@ -170,7 +176,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
     result : dict
         A dict describing the best-fit expression (determined by reward).
     """
-
+    # save_top_samples_per_batch=epsilon
     run_gp_meld = gp_controller is not None
     print("cpu number", cpu_count())
     # Config assertions and warnings
@@ -232,19 +238,27 @@ def learn(sess, controller, pool, gp_controller, output_file,
     p_final = None
     r_best = -np.inf
     prev_r_best = None
+    last_improvement = 0
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
+    print(n_epochs)
+    
+    start_size = 5000 if use_start_size else batch_size
+    bsz = batch_size
+    epsilon_start = epsilon //2 if use_start_size else epsilon
+    ep = epsilon
     nevals = 0 # Total number of sampled expressions (from RL or GP)
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
 
     top_samples_per_batch = list()
-
+    funcion_info_per_batch = list()
     logger = StatsLogger(sess, output_file, save_summary, save_all_epoch, hof, save_pareto_front,
                          save_positional_entropy, save_top_samples_per_batch, save_cache,
-                         save_cache_r_min, save_freq, save_token_count)
+                         save_cache_r_min, save_freq, save_token_count, save_rewards, save_all_rewards)
 
     sym_true = Program.task.sym_true
     p_true = from_str_tokens(sym_true)
+    # import pdb;pdb.set_trace()
     p_true_r = p_true.r_ridge
     print('*'*6+" True expression "+ '*'*6)
     print("expression: ", p_true.str_expression)
@@ -252,7 +266,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
     print("mse: ", result_true['nmse_test'])
     print(f"reward: {p_true_r}")
     print("success or  not :", result_true['success'])
-    # import pdb;pdb.set_trace()
+    
     start_time = time.time()
     st = time.time()
     if verbose:
@@ -262,6 +276,15 @@ def learn(sess, controller, pool, gp_controller, output_file,
             dur = time.time()-st
             print(f"duration of epoch {epoch-1} is {dur}")
             st =time.time()
+            
+        # bigger size for start
+        if epoch<10:
+            batch_size = start_size
+            epsilon = epsilon_start
+        else:
+            batch_size = bsz
+            epsilon = ep
+            
         # Set of str representations for all Programs ever seen
         s_history = set(r_history.keys() if Program.task.stochastic else Program.cache.keys())
 
@@ -275,7 +298,6 @@ def learn(sess, controller, pool, gp_controller, output_file,
         
         programs = [from_tokens(a) for a in actions]
         # import pdb;pdb.set_trace()
-
         nevals += batch_size
         # import pdb;pdb.set_trace()
         # Run GP seeded with the current batch, returning elite samples
@@ -299,52 +321,8 @@ def learn(sess, controller, pool, gp_controller, output_file,
             Program.cache.update(pool_p_dict)
                     
         # Compute rewards (or retrieve cached rewards)
-        
-        
 
-
-        def cal_r(p_programs):
-            result = [p.r_ridge() for p in p_programs]
-            # import pdb;pdb.set_trace()
-            return result
-
-        def submit_cal(function_dill, p_programs):
-            function = dill.loads(function_dill)
-            p_programs = dill.loads(p_programs)
-            result = function(p_programs)
-            return dill.dumps(result)
-
-        def multi_cal(programs_list):
-            total_number = len(programs_list)
-            number  = total_number //5
-            start  = 0
-            results = []
-            # import pdb;pdb.set_trace()
-            with Pool(1) as p_pool:
-                for i in range(1):
-                    p_split = programs_list[i*number: (i+1)*number]
-                    result = p_pool.apply_async(submit_cal, [dill.dumps(cal_r),dill.dumps(p_split)])               
-                    results.append(result)
-                p_pool.close()
-                p_pool.join()
-            import pdb;pdb.set_trace()
-            return np.array(list(chain.from_iterable([result.get() for result in results])))
-        
-        def run_dill_encoded(payload):
-            fun, args = dill.loads(payload)
-            return fun(*args)
-
-        def apply_async(pool, fun, args):
-            payload = dill.dumps((fun, args))
-            return pool.apply_async(run_dill_encoded, (payload,))
-
-        # r = multi_cal(programs)
-        # et1 = time.time()
         r = np.array([p.r_ridge for p in programs])
-        # et2  = time.time()
-        # print("Time used for calculating reward: ", et1-start_time)
-        # print("Time used for calculating reward: ", et2-et1)
-        # import pdb;pdb.set_trace()
         r_train = r
         
         # Back up programs to save them properly later
@@ -366,10 +344,15 @@ def learn(sess, controller, pool, gp_controller, output_file,
         if save_top_samples_per_batch > 0:
             # sort in descending order: larger rewards -> better solutions
             sorted_idx = np.argsort(r)[::-1]
-            one_perc = int(len(programs) * float(save_top_samples_per_batch))
+            one_perc = int(len(programs) * float(epsilon))
+            # import pdb;pdb.set_trace()
+            best_program = programs[sorted_idx[0]]
+            r_max_ = r[sorted_idx[0]]
             for idx in sorted_idx[:one_perc]:
                 top_samples_per_batch.append([epoch, r[idx], repr(programs[idx])])
-
+                
+            funcion_info_per_batch.append([epoch, r_max_, best_program.funcion_expression, best_program.coefficents ])
+        
         if eval_all:#False
             success = [p.evaluate.get("success") for p in programs]
             # Check for success before risk-seeking, but don't break until after
@@ -391,12 +374,22 @@ def learn(sess, controller, pool, gp_controller, output_file,
         s_full = s
         actions_full = actions
         invalid_full = invalid
-        r_max = np.max(r)
-        r_best = max(r_max, r_best)
+        # r_max = np.max(r)
+        # r_best = max(r_max, r_best)
         quantile = np.min(r)
+        valid_full1 = invalid_full ==False
+        valid_full2 = r_full >0
+        valid_full = np.logical_and(valid_full1, valid_full2)
+        r_full_valid = r_full[valid_full]
+        r_full = r_full[valid_full2]
+        l_full= l_full[valid_full]
+        
+        r_max = np.max(r_full_valid)
+        r_best = max(r_max, r_best)
+       
         """
         Apply risk-seeking policy gradient: compute the empirical quantile of
-        rewards and filter out programs with lesser reward.
+        rewards and filter out programs with less reward.
         """
         if epsilon is not None and epsilon < 1.0:
             # Compute reward quantile estimate
@@ -481,18 +474,40 @@ def learn(sess, controller, pool, gp_controller, output_file,
             obs         = obs[keep, :, :]
             priors      = priors[keep, :, :]
             on_policy   = on_policy[keep]
-
+            
+            #invalid process
+            train_index= np.arange(len(actions))
+            invalid_index = train_index[invalid== True]
+            valid = invalid ==False
+            
+            keep_valid = True
+            if keep_valid:
+                actions     = actions[valid, :]
+                obs         = obs[valid, :, :]
+                priors      = priors[valid, :, :]
+                on_policy   = on_policy[valid]
+                r_train = r         = r[valid]
+                p_train = programs  = list(compress(programs, valid))
+                l           = l[valid]
+                s           = list(compress(s, valid))
+                s_str           = list(compress(s_str, valid))
+                invalid     = invalid[valid]
+            else:
+                #Todo
+                pass
+                
         # Clip bounds of rewards to prevent NaNs in gradient descent
+       
         r       = np.clip(r,        -1e6, 1e6)
         r_train = np.clip(r_train,  -1e6, 1e6)
-        # import pdb;pdb.set_trace()
+        r_full_valid = np.clip(r_full_valid, -1e6, 1e6)
         # Compute baseline
         # NOTE: pg_loss = tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
         if baseline == "ewma_R":
             ewma = np.mean(r_train) if ewma is None else alpha*np.mean(r_train) + (1 - alpha)*ewma
             b_train = ewma
         elif baseline == "R_e": # Default
-            ewma = -1
+            ewfma = -1
             b_train = quantile
         elif baseline == "ewma_R_e":
             ewma = np.min(r_train) if ewma is None else alpha*quantile + (1 - alpha)*ewma
@@ -525,7 +540,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
         epoch_walltime = time.time() - start_time
 
         # Collect sub-batch statistics and write output
-        logger.save_stats(r_full, l_full, actions_full, s_full, invalid_full, r,
+        logger.save_stats(r_full_valid, r_full, l_full, actions_full, s_full, invalid_full, r,
                           l, actions, s, invalid, r_best, r_max, ewma, summaries, epoch,
                           s_history, b_train, epoch_walltime, controller_programs)
 
@@ -539,8 +554,13 @@ def learn(sess, controller, pool, gp_controller, output_file,
         if prev_r_best is None or r_max > prev_r_best:
             new_r_best = True
             p_r_best = programs[np.argmax(r)]
-
+            last_improvement = 0
+        else:
+            last_improvement+=1
+            
+        # train  
         prev_r_best = r_best
+        
 
         # Print new best expression
         if verbose and new_r_best:
@@ -566,8 +586,10 @@ def learn(sess, controller, pool, gp_controller, output_file,
         if verbose and (epoch + 1) == n_epochs:
             print("[{}] Ending training after epoch {}/{}, current best R: {:.4f}".format(get_duration(start_time), epoch + 1, n_epochs, prev_r_best))
 
-        if nevals > n_samples:
+        if last_improvement>20  and pinn_model is not None:
             break
+        # if nevals > n_samples:
+        #     break
 
     if verbose:
         print("-- RUNNING EPOCHS END ---------------\n")
@@ -577,15 +599,47 @@ def learn(sess, controller, pool, gp_controller, output_file,
     controller.prior.report_constraint_counts()
 
     #Save all results available only after all epochs are finished. Also return metrics to be added to the summary file
-    results_add = logger.save_results(positional_entropy, top_samples_per_batch, r_history, pool, epoch, nevals)
+    results_add = logger.save_results(positional_entropy, top_samples_per_batch,funcion_info_per_batch, r_history, pool, epoch, nevals)
 
     # Print the priority queue at the end of training
+    final_p_list = []
     if verbose and priority_queue is not None:
         for i, item in enumerate(priority_queue.iter_in_order()):
             print("\nPriority queue entry {}:".format(i))
             p = Program.cache[item[0]]
             p.print_stats()
+            final_p_list.append(p)
 
+    if stability_selection:
+        print("stability testing ")
+        # lamda = [i/10 for i in range(1,10)]
+        lamda = 0.5
+        mse_cv = []# after weighted sum of 100 samples
+        mse_list = []
+        cv_list = []
+        p_candidate = filter_same(final_p_list)
+        # import pdb;pdb.set_trace()
+        
+        for i, p_sel in enumerate(p_candidate[:5]):
+            print(i, p_sel.str_expression)
+            mse, cv= p_sel.execute_stability_test()
+            mse_list.append(mse)
+            cv_list.append(cv)
+            
+        mse_cv = criterion(mse_list, cv_list, type = 'norm_multiply')
+        # import pdb;pdb.set_trace()
+        ranking = np.argsort(mse_cv, axis = 0)[0]
+        best_count = np.bincount(ranking)
+        best_ind = np.argmax(best_count)
+        print(f"ranking is {best_count}; with No.{best_ind} ranks first")
+        prefix, _ = os.path.splitext(output_file)
+        draw_criterion(mse_list,  'mse', prefix)
+        draw_criterion(cv_list , 'cv', prefix)
+        draw_criterion(mse_cv, 'mse_cv', prefix)
+        p_r_best = p_candidate[best_ind]
+        # import pdb;pdb.set_trace()
+
+        
     # Close the pool
     if pool is not None:
         pool.close()

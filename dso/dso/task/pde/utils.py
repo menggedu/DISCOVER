@@ -1,74 +1,4 @@
-
-import numpy as np
-import scipy.io as scio
-import pickle
-def load_data(dataset):
-    X = []
-    if dataset == 'chafee-infante': # 301*200的新数据
-        u = np.load("./dso/task/pde/data/chafee_infante_CI.npy")
-        x = np.load("./dso/task/pde/data/chafee_infante_x.npy").reshape(-1,1)
-        t = np.load("./dso/task/pde/data/chafee_infante_t.npy").reshape(-1,1)
-        n_input_var = 1
-        sym_true = 'add,add,u,n3,u,diff2,u,x1'
-       
-        # right_side = 'right_side = uxx-u+u**3'
-    elif dataset == 'Burgers':
-        data = scio.loadmat('./dso/task/pde/data/burgers.mat')
-        u=data.get("usol")
-        x=np.squeeze(data.get("x")).reshape(-1,1)
-        t=np.squeeze(data.get("t").reshape(-1,1))
-        sym_true = 'add,mul,u,diff,u,x1,diff2,u,x1'
-        right_side_origin = 'right_side_origin = -1*u_origin*ux_origin+0.1*uxx_origin'
-        n_input_var = 1
-        
-   # Kdv -0.0025uxxx-uux
-    elif dataset == 'Kdv':
-        data = scio.loadmat('./dso/task/pde/data/Kdv.mat')
-        u=data.get("uu")
-        x=np.squeeze(data.get("x")).reshape(-1,1)
-        t=np.squeeze(data.get("tt").reshape(-1,1))
-        sym_true = 'add,mul,u,diff,u,x1,diff3,u,x1'
-        right_side_origin = 'right_side_origin = -0.0025*uxxx_origin-u_origin*ux_origin'
-        n_input_var = 1
-        
-    elif dataset == 'PDE_divide':
-
-        u=np.load("./dso/task/pde/data/PDE_divide.npy").T
-        nx = 100
-        nt = 251
-        x=np.linspace(1,2,nx).reshape(-1,1)
-        t=np.linspace(0,1,nt).reshape(-1,1)
-        sym_true = 'add,div,diff,u,x1,x1,diff2,u,x1'
-        right_side_origin = 'right_side_origin = -config.divide(ux_origin, x_all) + 0.25*uxx_origin'
-        n_input_var = 1
-        
-    elif dataset == 'PDE_compound':
-        u=np.load("./dso/task/pde/data/PDE_compound.npy").T
-        nx = 100
-        nt = 251
-        x=np.linspace(1,2,nx).reshape(-1,1)
-        t=np.linspace(0,0.5,nt).reshape(-1,1)
-        n, m = u.shape 
-        u = u[int(n*0.1):int(n*0.9), int(m*0):int(m*1)]
-        x = x[int(n*0.1):int(n*0.9)]
-        t = t[int(m*0):int(m*1)]
-        sym_true = 'add,mul,u,diff2,u,x1,mul,diff,u,x1,diff,u,x1'
-        right_side_origin = 'right_side_origin = u_origin*uxx_origin + ux_origin*ux_origin'
-        n_input_var = 1
-    else:
-        assert False, "Unknown dataset"
-    X.append(x)
-        # self.dt = self.t[1]-self.t[0]
-    n, m = u.shape
-    dt = t[1]-t[0]
-    ut = np.zeros((n, m))
-    for idx in range(n):
-        ut[idx, :] = FiniteDiff(u[idx, :], dt)
-    return u,X,ut,sym_true, n_input_var
-
-
-def load_data_2D(dataset):
-    pass
+import numpy  as  np
 
 def FiniteDiff(u, dx):
     
@@ -104,17 +34,10 @@ def Diff(u, dxt, name='x'):
     n, m = u.shape
     uxt = np.zeros((n, m))
 
-    if name == 'x':
-        dxt = dxt[2]-dxt[1]
-        for i in range(m):
-            uxt[:, i] = FiniteDiff(u[:, i], dxt)
 
-    elif name == 't':
-        for i in range(n):
-            uxt[i, :] = FiniteDiff(u[i, :], dxt)
-
-    else:
-        NotImplementedError()
+    dxt = dxt[2]-dxt[1]
+    for i in range(m):
+        uxt[:, i] = FiniteDiff(u[:, i], dxt)
 
     return uxt
 
@@ -127,17 +50,11 @@ def Diff2(u, dxt, name='x'):
     n, m = u.shape
     uxt = np.zeros((n, m))
 
-    if name == 'x':
-        dxt = dxt[2]-dxt[1]
-        for i in range(m):
-            uxt[:, i] = FiniteDiff2(u[:, i], dxt)
 
-    elif name == 't':
-        for i in range(n):
-            uxt[i, :] = FiniteDiff2(u[i, :], dxt)
+    dxt = dxt[2]-dxt[1]
+    for i in range(m):
+        uxt[:, i] = FiniteDiff2(u[:, i], dxt)
 
-    else:
-        NotImplementedError()
 
     return uxt
 
@@ -149,18 +66,12 @@ def Diff3(u, dxt, name='x'):
     n, m = u.shape
     uxt = np.zeros((n, m))
 
-    if name == 'x':
-        dxt = dxt[2]-dxt[1]
-        for i in range(m):
-            uxt[:, i] = FiniteDiff2(u[:, i], dxt)
-            uxt[:,i] = FiniteDiff(uxt[:,i],dxt )
-    elif name == 't':
-        for i in range(n):
-            uxt[i, :] = FiniteDiff2(u[i, :], dxt)
-            uxt[i,:] = FiniteDiff(uxt[:,i],dxt )
 
-    else:
-        NotImplementedError()
+    dxt = dxt[2]-dxt[1]
+    for i in range(m):
+        uxt[:, i] = FiniteDiff2(u[:, i], dxt)
+        uxt[:,i] = FiniteDiff(uxt[:,i],dxt )
+
 
     return uxt
 
@@ -184,5 +95,3 @@ def Diff4(u, dxt, name='x'):
 
     else:
         NotImplementedError()
-
-    return uxt

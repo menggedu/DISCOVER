@@ -5,7 +5,9 @@ import scipy.io as scio
 from dso.task import HierarchicalTask
 from dso.library import Library
 from dso.functions import create_tokens
-from dso.task.pde.utils import *
+from dso.task.pde.data_load import *
+from dso.task.pde.utils_nn import load_noise_data
+from dso.task.pde.utils_noise import *
 
 
 class PDETask(HierarchicalTask):
@@ -17,10 +19,15 @@ class PDETask(HierarchicalTask):
     task_type = "pde"
 
     def __init__(self, function_set, dataset, metric="residual",
-                 metric_params=(1.0,), extra_metric_test=None,
+                 metric_params=(0.01,), extra_metric_test=None,
                  extra_metric_test_params=(), reward_noise=0.0,
                  reward_noise_type="r", threshold=1e-12,
+                 data_noise_level=0,
+                 data_amount = 1,
+                 use_meta_data = False,
+                 use_torch = False,
                  normalize_variance=False, protected=False,
+                 spatial_error = True, 
                  decision_tree_threshold_set=None):
         """
         Parameters
@@ -71,29 +78,48 @@ class PDETask(HierarchicalTask):
         super(HierarchicalTask).__init__()
 
     
-        self.X_test = self.y_test = self.y_test_noiseless = None
+        # self.X_test = self.y_test = self.y_test_noiseless = None
         self.name = dataset
-        load_class = load_data_2D if '2D' in dataset else load_data
+        self.noise_level = data_noise_level
+        self.spatial_error = spatial_error
+        
+        if data_noise_level>0 and use_torch:
+            load_class = load_noise_data
+            opt_params = use_meta_data
+            print("use_meta_data",use_meta_data)
+        else:
+            load_class = load_data_2D if '2D' in dataset else load_data
+            opt_params = True
+        # import pdb;pdb.set_trace()
+        self.u,self.x,t, ut,sym_true, n_input_var,test_list = load_class(dataset, data_noise_level, data_amount, opt_params)
 
-        self.u,self.x,ut,sym_true, n_input_var = load_class(dataset)
         self.ut=ut
         self.sym_true = sym_true
         self.ut = self.ut.reshape(-1,1)
+        
+        if torch.is_tensor(self.ut):
+            self.ut = tensor2np(self.ut)
         # Save time by only computing data variances once
-        self.var_y_test = np.var(self.ut)
-        # import pdb;pdb.set_trace()
-        self.var_y_test_noiseless = np.var(self.ut)
+        # self.var_y_test = np.var(self.ut)
+        # self.var_y_test_noiseless = np.var(self.ut)
 
         """
         Configure train/test reward metrics.
         """
         self.threshold = threshold
-        self.metric, self.invalid_reward, self.max_reward = make_pde_metric(metric, self.ut, *metric_params)
+        self.metric, self.invalid_reward, self.max_reward = make_pde_metric(metric, *metric_params)
         self.extra_metric_test = extra_metric_test
-        if extra_metric_test is not None:
-            self.metric_test, _, _ = make_pde_metric(extra_metric_test, self.y_test, *extra_metric_test_params)
+        self.metric_test = None
+        if test_list is not None and test_list[0] is not None:
+            self.u_test,self.ut_test = test_list
+            self.ut_test = self.ut_test.reshape(-1,1)
         else:
-            self.metric_test = None
+            self.u_test,self.ut_test = None,None
+                # self.metric_test = self.metric
+        # if extra_metric_test is not None:
+        #     self.metric_test, _, _ = make_pde_metric(extra_metric_test, self.y_test, *extra_metric_test_params)
+        # else:
+        #     self.metric_test = None
 
         """
         Configure reward noise.
@@ -113,7 +139,8 @@ class PDETask(HierarchicalTask):
         else:
             self.rng = None
             self.scale = None
-
+            
+ 
         # Set the Library 
         
         tokens = create_tokens(n_input_var=n_input_var,
@@ -126,53 +153,15 @@ class PDETask(HierarchicalTask):
         # Set stochastic flag
         self.stochastic = reward_noise > 0.0
 
-    def reward_function(self, p):
-
-        
-        # Compute estimated values
-        y_hat = p.execute(self.u, self.x)
-
-        # For invalid expressions, return invalid_reward
-        # import  pdb;pdb.set_trace()
-        if p.invalid:
-            print(p.tokens)
-            # import pdb;pdb.set_trace()
-            return self.invalid_reward
-
-        # Observation noise
-        # For reward_noise_type == "y_hat", success must always be checked to
-        # ensure success cases aren't overlooked due to noise. If successful,
-        # return max_reward.
-        if self.reward_noise and self.reward_noise_type == "y_hat":
-            if p.evaluate.get("success"):
-                return self.max_reward
-            y_hat += self.rng.normal(loc=0, scale=self.scale, size=y_hat.shape)
-
-        # Compute metric
-        r = self.metric(self.ut, y_hat)
-
-        # Direct reward noise
-        # For reward_noise_type == "r", success can for ~max_reward metrics be
-        # confirmed before adding noise. If successful, must return np.inf to
-        # avoid overlooking success cases.
-        if self.reward_noise and self.reward_noise_type == "r":
-            if r >= self.max_reward - 1e-5 and p.evaluate.get("success"):
-                return np.inf
-            r += self.rng.normal(loc=0, scale=self.scale)
-            if self.normalize_variance:
-                r /= np.sqrt(1 + 12 * self.scale ** 2)
-
-        return r
-
-    def reward_functionSTR(self,p):
-        y_hat, w = p.execute_STR(self.u, self.x, self.ut)
+    def reward_function(self,p):
+        y_hat, y_right, w = p.execute_STR(self.u, self.x, self.ut)
         n = len(w)
         if p.invalid:
             # print(p.tokens)
             # import pdb;pdb.set_trace()
             return self.invalid_reward, [0]
-
-        # Compute metric
+        # import pdb;pdb.set_trace()
+        
         r = self.metric(self.ut, y_hat,n)
 
         return r, w
@@ -180,7 +169,8 @@ class PDETask(HierarchicalTask):
     def evaluate(self, p):
 
         # Compute predictions on test data
-        y_hat, w = p.execute_STR(self.u, self.x, self.ut)
+        y_hat,y_right,  w = p.execute_STR(self.u, self.x, self.ut)
+
         n = len(w)
         # y_hat = p.execute(self.X_test)
         if p.invalid:
@@ -203,6 +193,12 @@ class PDETask(HierarchicalTask):
             "success" : success,
 
         }
+        if self.u_test is not None:
+        
+            y_hat_test,y_right, w_test = p.execute_STR(self.u_test, self.x, self.ut_test, test=True)
+            info.update({
+                'w_test': w_test
+            })
 
         if self.metric_test is not None:
             if p.invalid:
@@ -220,7 +216,7 @@ class PDETask(HierarchicalTask):
         return info
 
 
-def make_pde_metric(name, ut, *args):
+def make_pde_metric(name, *args):
     """
     Factory function for a regression metric. This includes a closures for
     metric parameters and the variance of the training data.
@@ -247,15 +243,13 @@ def make_pde_metric(name, ut, *args):
     max_reward: float
         Maximum possible reward under this metric.
     """
-
-    var_y = np.var(ut)
-    
+    # ut = 
     all_metrics = {
 
-        "inv_nrmse" :    (lambda y, y_hat : 1/(1 + args[0]*np.sqrt(np.mean((y - y_hat)**2)/var_y)),
+        "inv_nrmse" :    (lambda y, y_hat : 1/(1 + np.sqrt(np.mean((y - y_hat)**2)/np.var(y))),
                         1),
 
-        "pde_reward":  (lambda y, y_hat,n : (1-0.01*n)/(1 + args[0]*np.sqrt(np.mean((y - y_hat)**2)/var_y)),
+        "pde_reward":  (lambda y, y_hat,n : (1-args[0]*n)/(1 + np.sqrt(np.mean((y - y_hat)**2)/np.var(y))),
                         1),
 
       
@@ -285,3 +279,7 @@ def make_pde_metric(name, ut, *args):
 
     return metric, invalid_reward, max_reward
 
+def test():
+    pass
+if __name__ == '__main__':
+    tas = test()

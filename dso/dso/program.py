@@ -14,7 +14,7 @@ from dso.functions import PlaceholderConstant
 from dso.const import make_const_optimizer
 from dso.utils import cached_property
 import dso.utils as U
-from dso.stridge import STRidge,Node,build_tree,unsafe_execute
+from dso.stridge import STRidge,Node,build_tree,unsafe_execute_torch,unsafe_execute
 
 
 def _finish_tokens(tokens):
@@ -87,7 +87,7 @@ def from_str_tokens(str_tokens, skip_cache=False):
         constants = []
         for s in str_tokens:
             if s in Program.library.names:
-                t = Program.library.names.index(s.lower())
+                t = Program.library.names.index(s)
             elif U.is_float(s):
                 assert "const" not in str_tokens, "Currently does not support both placeholder and hard-coded constants."
                 t = Program.library.const_token
@@ -227,6 +227,8 @@ class Program(object):
     execute = None          # Link to execute. Either cython or python
     cyfunc = None           # Link to cyfunc lib since we do an include inline
 
+    function_terms = {} #cache the bst reward sample function terms
+    reward_list = []
     def __init__(self, tokens=None, on_policy=True):
         """
         Builds the Program from a list of of integers corresponding to Tokens.
@@ -239,9 +241,9 @@ class Program(object):
     def _init(self, tokens, on_policy=True):
 
         self.traversal = [Program.library[t] for t in tokens]
-        default_terms = [[Program.library[t]] for term in Program.default_terms for t in term]
+        self.default_terms = [[Program.library[t]] for term in Program.default_terms for t in term]
         # import pdb;pdb.set_trace()
-        self.STRidge = STRidge(self.traversal.copy(),default_terms)
+        self.STRidge = STRidge(self.traversal.copy(),self.default_terms, noise_level=Program.task.noise_level, spatial_error=Program.task.spatial_error)
         
         self.const_pos = [i for i, t in enumerate(self.traversal) if isinstance(t, PlaceholderConstant)]
         self.len_traversal = len(self.traversal)
@@ -256,9 +258,8 @@ class Program(object):
         self.on_policy_count = 1 if on_policy else 0
         self.off_policy_count = 0 if on_policy else 1
         self.originally_on_policy = on_policy # Note if a program was created on policy
-
         if Program.n_objects > 1:
-            # Fill list of multi-traversals
+                # Fill list of multi-traversals
             danglings = -1 * np.arange(1, Program.n_objects + 1)
             self.traversals = [] # list to keep track of each multi-traversal
             i_prev = 0
@@ -275,8 +276,8 @@ class Program(object):
                     Keep only what dangling values have not yet been calculated. Don't want dangling to go down and up (e.g hits -1, goes back up to 0 before hitting -2)
                     and trigger the end of a traversal at the wrong time
                     """
-                    danglings = danglings[danglings != dangling - 1]
-                    
+                    danglings = danglings[danglings != dangling - 1] 
+                        
     def __getstate__(self):
         
         have_r = "r" in self.__dict__
@@ -323,52 +324,48 @@ class Program(object):
             self.on_policy_count = state_dict['on_policy_count']
             self.off_policy_count = state_dict['off_policy_count']
 
-    def execute_STR(self,u, x,ut):
-        import time
-        st = time.time()
-        y_hat, w_best, self.invalid,self.error_node,self.error_type= self.STRidge.calculate(u,x,ut)
-        et  = time.time()
-        # if et-st>1:
-        # print('long calculate: ', et-st)
-            # import pdb;pdb.set_trace()
-        return y_hat, w_best
+    def execute_STR(self,u, x,ut,  test=False):
 
-    def execute(self, u, x):
-        """
-        Execute program on input u, x.
+        y_hat, w_best, self.invalid,self.error_node,self.error_type, y_right= self.STRidge.calculate(u,x,ut, test, Program.execute_function)
 
-        Parameters
-        ==========
-
-        u : np.array
-            main variable to execute the Program over.
-
-        Returns
-        =======
-
-        result : np.array or list of np.array
-            In a single-object Program, returns just an array. In a multi-object Program, returns a list of arrays.
-        """
-        if Program.n_objects > 1:
-            if not Program.protected:
-                result = []
-                invalids = []
-                for trav in self.traversals:
-                    val, invalid, self.error_node, self.error_type = Program.execute_function(trav, X)
-                    result.append(val)
-                    invalids.append(invalid)
-                self.invalid = any(invalids)
+        return y_hat, y_right, w_best
+    
+    def execute_stability_test(self):
+        
+        return self.task.stability_test(self)
+    
+    def switch_tokens(self):
+        torch_tokens = Program.library.torch_tokens # dicts
+        np_tokens_name = Program.library.np_names
+        new_traversal = []
+        for t in self.traversal:
+            if t.name in np_tokens_name:
+                new_traversal.append(torch_tokens[t.name+'_t'])
             else:
-                result = [Program.execute_function(trav, u, x) for trav in self.traversals]
-            return result
-        else:
-            if not Program.protected:
-                result, self.invalid, self.error_node, self.error_type = Program.execute_function(self.traversal, u, x)
-            else:
-                result = Program.execute_function(self.traversal, u, x)
-            return result
+                new_traversal.append(t)
+        self.traversal = new_traversal
+        self.STRidge = STRidge(self.traversal.copy(),self.default_terms, \
+            noise_level=Program.task.noise_level, spatial_error=Program.task.spatial_error)
+    
+    @cached_property
+    def mse(self):
+        return self.task.mse
+    
+    @cached_property
+    def cv(self):
+        return self.task.cv
+    
+    @cached_property
+    def evaluate(self):
+        """Evaluates and returns the evaluation metrics of the program."""
 
+        # Program must be optimized before computing evaluate
 
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+
+            return self.task.evaluate(self)
+        
     def optimize(self):
         """
         Optimizes PlaceholderConstant tokens against the reward function. The
@@ -430,6 +427,11 @@ class Program(object):
 
         Program.task = task
         Program.library = task.library
+        
+    @classmethod
+    def reset_task(cls, model):
+        Program.task.generate_meta_data(model)  
+         
     @classmethod
     def set_default_terms(cls, default_terms):
         Program.default_terms = default_terms
@@ -463,7 +465,7 @@ class Program(object):
         Program.complexity_function = lambda p : all_functions[name](p)
 
     @classmethod
-    def set_execute(cls, protected):
+    def set_execute(cls, protected,use_torch):
         """Sets which execute method to use"""
 
         # Check if cython_execute can be imported; if not, fall back to python_execute
@@ -473,10 +475,12 @@ class Program(object):
         #     execute_function        = cython_execute
         #     Program.have_cython     = True
         # except ImportError:
-        from dso.execute import python_execute
+        from dso.execute import python_execute, python_execute_torch
         execute_function        = python_execute
         Program.have_cython     = False
-        Program.execute_function = unsafe_execute
+        Program.use_torch = use_torch
+        
+        Program.execute_function = unsafe_execute if not use_torch else unsafe_execute_torch 
         Program.protected = False
 
     @cached_property
@@ -484,55 +488,30 @@ class Program(object):
         """Evaluates and returns the reward of the program"""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            import time
-            st = time.time()
-
-            # Return final reward after optimizing
             
-            result, self.w = self.task.reward_functionSTR(self)
-            
-            dur =time.time()-st
-            # print(dur)
+            result, self.w = self.task.reward_function(self)
             return result
-
-    @cached_property
-    def r(self):
-        """Evaluates and returns the reward of the program"""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            # import time
-            # st = time.time()
-            # Optimize any PlaceholderConstants
-            self.optimize()
-
-            # Return final reward after optimizing
-            result = self.task.reward_function(self)
-            # dur =time.time()-st
-            # print(dur)
-            # if dur>2:
-            #     import pdb;pdb.set_trace()
-            return result
-
+                
     @cached_property
     def complexity(self):
         """Evaluates and returns the complexity of the program"""
 
         return Program.complexity_function(self)
 
-    @cached_property
-    def evaluate(self):
-        """Evaluates and returns the evaluation metrics of the program."""
+    # @cached_property
+    # def evaluate(self):
+    #     """Evaluates and returns the evaluation metrics of the program."""
 
-        # Program must be optimized before computing evaluate
-        # if "r" not in self.__dict__:
-        #     print("WARNING: Evaluating Program before computing its reward." \
-        #           "Program will be optimized first.")
-        #     self.optimize()
+    #     # Program must be optimized before computing evaluate
+    #     if "r" not in self.__dict__:
+    #         print("WARNING: Evaluating Program before computing its reward." \
+    #               "Program will be optimized first.")
+    #         self.optimize()
 
-        # with warnings.catch_warnings():
-        #     warnings.simplefilter("ignore")
+    #     with warnings.catch_warnings():
+    #         warnings.simplefilter("ignore")
 
-        return self.task.evaluate(self)
+    #     return self.task.evaluate(self)
 
     @cached_property
     def sympy_expr(self):
@@ -575,7 +554,7 @@ class Program(object):
         
             We will print the most honest reward possible when using validation.
         """
-        
+
         print("\tReward: {}".format(self.r_ridge))
         print("\tMSE:{}".format(self.evaluate['nmse_test']))
         print("\tCount Off-policy: {}".format(self.off_policy_count))
@@ -601,10 +580,24 @@ class Program(object):
     @property   
     def str_expression(self):
         out = ""
+        # if Program.task.task_type == 'pde':
+        if 'w_test' in self.evaluate:
+            self.w = self.evaluate['w_test']
         for number, traversal in zip(self.w, self.STRidge.terms):
             out+=str(number)+" * "+ repr(traversal) +' + '
         
         return out[:-3]
+    
+    @property
+    def funcion_expression(self):
+        out = " |".join([repr(function ) for function  in self.STRidge.terms])
+        return  out
+    
+    @property
+    def coefficents(self):
+        out = "|".join([str(w) for w  in self.w])
+        return  out
+
 
 
 ###############################################################################

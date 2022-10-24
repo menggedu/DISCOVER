@@ -208,6 +208,12 @@ def make_task(task_type, **config_task):
     if task_type == "pde":
         from dso.task.pde.pde import PDETask
         task_class = PDETask
+    elif task_type == "pde_dsr":
+        from dso.task.pde.pde_dsr import PDE_dsr
+        task_class = PDE_dsr
+    elif task_type == "pde_pinn":
+        from dso.task.pde.pde_pinn import PDEPINNTask
+        task_class=PDEPINNTask
     else:
         # Custom task import
         task_class = import_custom_source(task_type)
@@ -224,7 +230,7 @@ def set_task(config_task):
 
     # Use of protected functions is the same for all tasks, so it's handled separately
     protected = config_task["protected"] if "protected" in config_task else False
-
-    Program.set_execute(protected)
+    use_torch = config_task["use_torch"] if "use_torch" in config_task else False
+    Program.set_execute(protected,use_torch)
     task = make_task(**config_task)
     Program.set_task(task)

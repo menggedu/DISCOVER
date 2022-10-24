@@ -2,10 +2,15 @@
 import re
 import numpy as np
 from fractions import Fraction
+from functools import partial
+import torch
 
 from dso.library import Token, PlaceholderConstant, HardCodedConstant
-from dso.task.pde.utils import *
+from dso.task.pde.utils_v1 import Diff, Diff2, Diff3, Diff4
+from dso.task.pde.utils_nn import torch_diff
+from dso.task.pde.utils_v2 import Diff_2, Diff2_2, Laplace
 import dso.utils as U
+
 
 GAMMA = 0.57721566490153286060651209008240243104215933593992
 
@@ -23,6 +28,8 @@ def n3(x1):
 
 def n4(x1):
     return np.power(x1, 4)
+def n5(x1):
+    return np.power(x1, 5)
 
 def sigmoid(x1):
     return 1 / (1 + np.exp(-x1))
@@ -32,7 +39,33 @@ def harmonic(x1):
         return np.array([sum(Fraction(1, d) for d in range(1, int(val)+1)) for val in x1], dtype=np.float32)
     else:
         return GAMMA + np.log(x1) + 0.5/x1 - 1./(12*x1**2) + 1./(120*x1**4)
+    
+def protected_div_torch(x1, x2):
+    new_x2 = torch.where(torch.abs(x2)>1e-8, x2, torch.ones(x2.shape).to(x2) *1e-8)
+    return torch.divide(x1,new_x2)
 
+add_ops = [
+    Token(Diff, "diff", arity=2, complexity=2),
+    Token(Diff2, "diff2", arity=2, complexity=3),
+    Token(Diff3, "diff3", arity=2, complexity=4),
+    Token(Diff4, "diff4", arity=2, complexity=5),
+    Token(Laplace, 'lap', arity=1, complexity=3 ),
+    Token(Diff_2, "Diff", arity=2, complexity=2),
+    Token(Diff2_2, "Diff2", arity=2, complexity=3),
+    # noise:
+    Token(partial(torch_diff,order=1), "diff_t", arity=2, complexity=2),
+    Token(partial(torch_diff,order=2), "diff2_t", arity=2, complexity=3),
+    Token(partial(torch_diff,order=3), "diff3_t", arity=2, complexity=4),
+    Token(partial(torch_diff,order=4), "diff4_t", arity=2, complexity=5),
+    
+    # torch
+    Token(torch.add, 'add_t', arity = 2, complexity=1),
+    Token(torch.subtract, "sub_t", arity=2, complexity=1),
+    Token(torch.multiply, "mul_t", arity=2, complexity=1),
+    Token(protected_div_torch, "div_t", arity=2, complexity=2),
+    Token(torch.square, "n2_t", arity=1, complexity=2),
+    Token(partial(torch.pow, exponent=3), "n3_t", arity=1, complexity=3),
+]
 
 # Annotate unprotected ops
 unprotected_ops = [
@@ -41,10 +74,8 @@ unprotected_ops = [
     Token(np.subtract, "sub", arity=2, complexity=1),
     Token(np.multiply, "mul", arity=2, complexity=1),
     Token(np.divide, "div", arity=2, complexity=2),
-    Token(Diff, "diff", arity=2, complexity=2),
-    Token(Diff2, "diff2", arity=2, complexity=3),
-    Token(Diff3, "diff3", arity=2, complexity=4),
-    Token(Diff4, "diff4", arity=2, complexity=5),
+    
+
 
     # Built-in unary operators
     Token(np.sin, "sin", arity=1, complexity=3),
@@ -66,15 +97,18 @@ unprotected_ops = [
     Token(expneg, "expneg", arity=1, complexity=4),
     Token(n3, "n3", arity=1, complexity=3),
     Token(n4, "n4", arity=1, complexity=3),
+    Token(n5, "n5", arity=1, complexity=3),
     Token(sigmoid, "sigmoid", arity=1, complexity=4),
     Token(harmonic, "harmonic", arity=1, complexity=4)
 ]
 
+unprotected_ops.extend(add_ops)
 
 """Define custom protected operators"""
 def protected_div(x1, x2):
     with np.errstate(divide='ignore', invalid='ignore', over='ignore'):
         return np.where(np.abs(x2) > 0.001, np.divide(x1, x2), 1.)
+
 
 def protected_exp(x1):
     with np.errstate(over='ignore'):
@@ -146,7 +180,7 @@ UNARY_TOKENS    = set([op.name for op in function_map.values() if op.arity == 1]
 BINARY_TOKENS   = set([op.name for op in function_map.values() if op.arity == 2])
 
 
-def create_tokens(n_input_var, function_set, protected, decision_tree_threshold_set=None, task_type ='regression'):
+def create_tokens(n_input_var, function_set, protected,torch_add=False, decision_tree_threshold_set=None, task_type ='regression'):
     """
     Helper function to create Tokens.
 
@@ -190,7 +224,8 @@ def create_tokens(n_input_var, function_set, protected, decision_tree_threshold_
                     op = protected_op
 
             token = function_map[op]
-
+            if torch_add:
+                token_torch = function_map[op+'_t']
         # Hard-coded floating-point constant
         elif U.is_float(op):
             token = HardCodedConstant(op)
@@ -204,4 +239,24 @@ def create_tokens(n_input_var, function_set, protected, decision_tree_threshold_
 
         tokens.append(token)
 
+
     return tokens
+
+def add_torch_tokens(function_set, protected):
+    tokens = {}
+    for op in function_set:
+    
+        # Registered Token
+        if op in function_map:
+            op+='_t'
+            # Overwrite available protected operators
+            if protected and not op.startswith("protected_"):
+                protected_op = "protected_{}".format(op)
+                if protected_op in function_map:
+                    op = protected_op
+
+            token = function_map[op]
+            tokens[op] = token
+            
+    return tokens
+        

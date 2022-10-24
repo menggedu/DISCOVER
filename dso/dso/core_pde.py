@@ -12,19 +12,23 @@ from multiprocessing import Pool, cpu_count
 import random
 from time import time
 from datetime import datetime
+import logging
 
 import numpy as np
 import tensorflow as tf
 import commentjson as json
+import torch
 
 from dso.task import set_task
 from dso.controller import Controller
 from dso.train import learn
 from dso.prior import make_prior
-from dso.program import Program
+from dso.program import Program,from_str_tokens
 from dso.config import load_config
 from dso.tf_state_manager import make_state_manager as manager_make_state_manager
 from dso.core import DeepSymbolicOptimizer
+from dso.pinn import PINN_model
+
 
 class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
     """
@@ -51,7 +55,7 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
         self.set_config(config, pde_config)
         self.sess = None
 
-    def setup(self):
+    def setup(self, ):
 
         # Clear the cache and reset the compute graph
         Program.clear_cache()
@@ -71,21 +75,116 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
         self.state_manager = self.make_state_manager()
         self.controller = self.make_controller()
         self.gp_controller = self.make_gp_controller()
+        self.denoise_pinn = self.make_pinn_model()
+        
+    def reset_up(self):
+                # Clear the cache and reset the compute graph
+        Program.clear_cache()
+        tf.reset_default_graph()
+        self.set_seeds() # Must be called _after_ resetting graph and _after_ setting task
+        self.sess = tf.Session()
+        self.controller = self.make_controller()
+        self.gp_controller = self.make_gp_controller()
+        
+    def pretrain(self):
+        # pretrain for pinn
+        self.denoise_pinn.pretrain()
+        
+        # path = './log/debug/Burgers2_2023-02-19-235657/dso_Burgers2_0_pretrain.ckpt'
+        # self.denoise_pinn.load_model(path)
+        Program.reset_task(self.denoise_pinn)
+        
+        
+    def pinn_train(self, best_p,count,coef=0.1,same_threshold=0,last=False):
+        # sym = 'add,sub,diff,mul,div,u,u,n2,u,x1,add,u,mul,u,u,diff2,u,x1'
+        # best_p = from_str_tokens(sym)
+        # r = best_p.r_ridge
+        # print(f"reward is {r}")
+        self.denoise_pinn.train_pinn(best_p,count,coef=coef,same_threshold=same_threshold,last=last)
+        Program.reset_task(self.denoise_pinn)
+        
+    def callLearn(self):
+        result = learn(self.sess,
+                    self.controller,
+                    self.pool,
+                    self.gp_controller,
+                    self.denoise_pinn,
+                    self.output_file,
+                    **self.config_training) #early_stop  
+        return result
+    
+    def callIterPINN(self):
+        """iterative pinn and pde discovery
+        """
+        self.pretrain()
+        cur_best_traversal=""
+        same_threshold = 0 # same program
+        prefix, _ = os.path.splitext(self.output_file)
+        iter_num = self.config_pinn["iter_num"]
+        for i in range(iter_num):
+            if i>0:
+                self.reset_up()
+            print(f"The No.{i} pde discovery process")   
+            result = self.callLearn()
+            self.output_file = f"{prefix}_{i+1}.csv"
+            best_p = result['program']
+            
+            # judgement for the last program
+            if cur_best_traversal ==  repr(best_p):
+                same_threshold +=1
+                if same_threshold>=3:
+                    last=True
+            else:
+                same_threshold = 0
+                last=False
+                
+            if i+1==iter_num:
+                last=True
+                
+            self.pinn_train(best_p,count = i+1,coef = self.config_pinn['coef_pde'],
+                            same_threshold = same_threshold,
+                            last=last)
+            
+            if last:
+                break
+        print(f"The No.{iter_num} pde discovery process")
+        self.reset_up()    
+        return self.callLearn()
+        
+    def callPINN_var(self):
+        """iterative pinn and pde discovery
+        """
+        self.pretrain()
 
+        prefix, _ = os.path.splitext(self.output_file)
+
+        result = self.callLearn()
+        self.output_file = f"{prefix}_1.csv"
+        best_p = result['program']
+        
+
+        self.denoise_pinn.train_pinn_cv(best_p, coef = self.config_pinn['coef_pde']) 
+        Program.reset_task(self.denoise_pinn)
+        self.reset_up()    
+        result = self.callLearn()
+        return result
+             
     def train(self):
         # Setup the model
         self.setup()
 
-        # Train the model
-        result = {"seed" : self.config_experiment["seed"]} # Seed listed first
-        # import pdb;pdb.set_trace()
-        result.update(learn(self.sess,
-                            self.controller,
-                            self.pool,
-                            self.gp_controller,
-                            self.output_file,
-                            **self.config_training))
-        return result
+        #pretrain
+        if self.denoise_pinn is not None:
+            if self.config_pinn['use_variance']:
+                result = self.callPINN_var()
+            else:
+                result = self.callIterPINN()
+            return result
+        else:
+            # conventional procedures   
+            result = {"seed" : self.config_experiment["seed"]} # Seed listed first
+            result.update(self.callLearn())
+            return result
 
     def set_config(self, config, pde_config):
         config = load_config(config)
@@ -100,6 +199,7 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
         self.config_controller = self.config["controller"]
         self.config_gp_meld = self.config["gp_meld"]
         self.config_experiment = self.config["experiment"]
+        self.config_pinn = self.config["pinn"]
 
     def save_config(self):
         # Save the config file
@@ -141,6 +241,8 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
         tf.set_random_seed(shifted_seed)
         np.random.seed(shifted_seed)
         random.seed(shifted_seed)
+        torch.random.manual_seed(shifted_seed)
+        torch.cuda.manual_seed_all(shifted_seed)
 
     def make_prior(self):
         prior = make_prior(Program.library, self.config_prior)
@@ -149,7 +251,19 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
     def make_state_manager(self):
         return manager_make_state_manager(self.config_state_manager)
 
-
+    def make_pinn_model(self):
+        device = torch.device('cuda:0')
+        if not self.config_pinn['use_pinn']:
+            model = None
+        else:
+            model = PINN_model(
+                self.output_file,
+                self.config_pinn,
+                self.config_task['dataset'],
+                device
+            )
+        return model
+    
     def make_controller(self):
         # import pdb;pdb.set_trace()
         controller = Controller(self.sess,

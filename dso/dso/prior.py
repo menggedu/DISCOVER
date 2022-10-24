@@ -31,7 +31,10 @@ def make_prior(library, config_prior):
         # "language_model" : LanguageModelPrior,
         "diff_left": DiffConstraint_left,
         'diff_right': DiffConstraint_right,
-        'diff_descedent': DiffConstraint_des
+        'diff_descedent': DiffConstraint_des,
+        'diff_descedent2': DiffConstraint_des2,
+        'laplace_child':LaplaceConstraint
+        
         
     }
     # import pdb;pdb.set_trace()
@@ -138,7 +141,11 @@ class JointPrior():
         zero_prior = np.zeros((actions.shape[0], self.L), dtype=np.float32)
         ind_priors = [zero_prior.copy() for _ in range(len(self.priors))]
         for i in range(len(self.priors)):
+        
+            # if i==6:
+            #     import pdb;pdb.set_trace()  
             ind_priors[i] += self.priors[i](actions, parent, sibling, dangling)
+
         combined_prior = sum(ind_priors) + zero_prior 
 
         # Count number of constrained tokens per prior
@@ -408,7 +415,7 @@ class RelationalConstraint(Constraint):
             adj_effectors = self.library.parent_adjust[self.effectors]
             mask += np.logical_and(np.isin(sibling, self.targets),
                                    np.isin(parent, adj_effectors))
-            prior = self.make_constraint(mask, [self.targets])
+            prior = self.make_constraint(mask, self.targets)
 
         elif self.relationship == "lchild":
             parents = self.effectors
@@ -488,6 +495,7 @@ class TrigConstraint(RelationalConstraint):
     def __init__(self, library):
         targets = library.trig_tokens
         effectors = library.trig_tokens
+        
         super(TrigConstraint, self).__init__(library=library,
                                              targets=targets,
                                              effectors=effectors,
@@ -606,7 +614,7 @@ class DiffConstraint_right(RelationalConstraint):
             # import pdb;pdb.set_trace()
         effectors = []
         for diff_name in library.names:
-            if 'diff' in diff_name:
+            if 'diff' in diff_name or 'Diff' in diff_name:
                 effectors.append(diff_name)
         
         super(DiffConstraint_right, self).__init__(library=library,
@@ -630,23 +638,60 @@ class DiffConstraint_right(RelationalConstraint):
 
 class DiffConstraint_des(RelationalConstraint):
     def __init__(self, library):
-        # import  pdb;pdb.set_trace()
-        not_included_names = ['add']
-        if "sub" in library.names:
-            not_included_names.append('sub')
+        not_included_names  = []
+        candidates = ['add', 'add_t', 'sub','sub_t']
+        for name in library.names:
+            if name in candidates:
+                not_included_names.append(name)
+        # if "sub" in library.names:
+        #     not_included_names.append('sub')
+        # if "sub" in library.names:
+        #     not_included_names.append('sub')
         if library.const_token is not None:
             not_included_names.append('const')
         targets  = [library.names.index(name) for name in not_included_names]
         effectors = []
-        # for diff_name in library.names:
-        #     if 'diff' in diff_name:
-        #         effectors.append(diff_name)
+        for diff_name in library.names:
+            if 'diff' in diff_name or 'Diff' in diff_name:
+                effectors.append(diff_name)
         super(DiffConstraint_des, self).__init__(library=library,
                                              targets=targets,
                                              effectors=effectors,
                                              relationship="descendant")
 
+class DiffConstraint_des2(RelationalConstraint):
+    def __init__(self, library):
+        not_included_names  = []
+        candidates = ["n2","n3","n4","mul", "div", "exp","log","sin","cos"]
+        for name in library.names:
+            if name in candidates:
+                not_included_names.append(name)
+        # if "sub" in library.names:
+        #     not_included_names.append('sub')
+        # if "sub" in library.names:
+        #     not_included_names.append('sub')
+        if library.const_token is not None:
+            not_included_names.append('const')
+        targets  = [library.names.index(name) for name in not_included_names]
+        effectors = []
+        for diff_name in library.names:
+            if 'diff' in diff_name or 'Diff' in diff_name:
+                effectors.append(diff_name)
+        super(DiffConstraint_des2, self).__init__(library=library,
+                                             targets=targets,
+                                             effectors=effectors,
+                                             relationship="descendant")
+class LaplaceConstraint(RelationalConstraint):
+    """Class that constrains input Tokens from being the descendants of laplace
+    Tokens."""
 
+    def __init__(self, library):
+        targets = library.input_tokens
+        effectors = ['lap'] if 'lap' in library.names else []
+        super(LaplaceConstraint, self).__init__(library=library,
+                                             targets=targets,
+                                             effectors=effectors,
+                                             relationship="uchild")
 class DiffConstraint_left(RelationalConstraint):
     """  
     left node can't be terminal tokens  and const
@@ -659,7 +704,7 @@ class DiffConstraint_left(RelationalConstraint):
         # targets.append(library.const_token)
         effectors = []
         for diff_name in library.names:
-            if 'diff' in diff_name:
+            if 'diff' in diff_name or 'Diff' in diff_name:
                 effectors.append(diff_name)
         
         super(DiffConstraint_left, self).__init__(library=library,
@@ -872,7 +917,10 @@ class SoftLengthPrior(Prior):
         self.nonterminal_mask = ~self.terminal_mask
 
         self.add_mask = np.zeros((self.L,), dtype=np.bool)
-        self.add_mask[self.library.names.index('add')] = True
+        candidates = ['add', 'add_t', 'sub','sub_t']
+        for name in candidates:
+            if name in self.library.names:
+                self.add_mask[self.library.names.index(name)] = True
         self.nonadd_mask = ~self.add_mask
         
 
@@ -904,8 +952,7 @@ class SoftLengthPrior(Prior):
             logit_adjust_add =-(t - 3) ** 2/10
             # Before loc, decrease p(terminal) where dangling == 1
             if t < self.loc:
-                if t<3:
-                    # import pdb;pdb.set_trace()
+                if t<3:  
                     prior+=self.nonadd_mask*logit_adjust_add
                 # prior[dangling == 1] += self.terminal_mask * logit_adjust
 

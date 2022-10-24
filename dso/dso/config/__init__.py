@@ -14,8 +14,6 @@ def get_base_config(task, language_prior):
     task_config_file = None
     if task in ["regression", 'PDE', None]:
         task_config_file = "config_regression.json"
-    elif task in ["control"]:
-        task_config_file = "config_control.json"
     else:
         # Custom tasks use config_common.json.
         task_config_file = "config_common.json"
@@ -34,6 +32,7 @@ def get_base_config(task, language_prior):
 def load_config(config=None):
     # Load user config
     if isinstance(config, str):
+        # import pdb;pdb.set_trace()
         with open(config, encoding='utf-8') as f:
             user_config = json.load(f)
     elif isinstance(config, dict):

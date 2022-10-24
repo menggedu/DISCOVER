@@ -129,6 +129,7 @@ class Library():
         self.L = len(tokens)
         self.names = [t.name for t in tokens]
         
+        self.np_names = [t.name for t in tokens if t.name not in ['const'] and ('u' not in t.name or t.name=='mul') and t.input_var is None]
         #sub child of operator
         self.arities = np.array([t.arity for t in tokens], dtype=np.int32)
 
@@ -136,7 +137,10 @@ class Library():
             [i for i, t in enumerate(self.tokens) if t.input_var is not None],
             dtype=np.int32)
 
-
+        # self.torch_tokens = [t for i, t in enumerate(self.tokens) if '_t' in t.name]
+  
+        # self.np_tokens = [t for i, t in enumerate(self.tokens) if t.name in self.torch_tokens]
+ 
         def get_tokens_of_arity(arity):
             
             _tokens = [i for i in range(self.L) if self.arities[i] == arity ]
@@ -236,6 +240,8 @@ class Library():
                            dtype=np.int32)
         return actions
 
-
+    def add_torch_tokens(self, tokens):
+        self.torch_tokens = tokens
+        
 class TokenNotFoundError(Exception):
     pass

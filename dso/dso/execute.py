@@ -3,20 +3,99 @@ try:
 except ImportError:
     cyfunc = None
 import array
-
+import torch.autograd as autograd
+import torch
 
 def python_execute(traversal, u, x):
+    apply_stack = []
+    dim_flag = None
+    i = 0
+    
+    for node in traversal:
+        apply_stack.append([node])
+        
+        while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
+            token = apply_stack[-1][0]
+            terminals = apply_stack[-1][1:]
+            # import pdb;pdb.set_trace()
+            if token.input_var is not None:
+                # import pdb;pdb.set_trace()
+                intermediate_result =  x[token.input_var] 
+                dim_flag = token.input_var+1
+            elif token.name ==  'u':
+                intermediate_result = u
+                
+            else:
+                
+                if 'diff' in token.name or 'Diff' in token.name:
+
+                    intermediate_result = token(*[*terminals,dim_flag])
+                elif 'lap' in token.name:
+                    intermediate_result = token(*[*terminals, x])
+                else:
+                    # import pdb;pdb.set_trace()
+                    intermediate_result = token(*terminals)
+
+            if len(apply_stack) != 1:
+                apply_stack.pop()
+                apply_stack[-1].append(intermediate_result)
+            else:
+                return intermediate_result  
+         
+def python_execute_torch(traversal, u, x):
+    apply_stack = []
+    dim_flag = None
+    i=0
+    for node in traversal:
+        apply_stack.append([node])
+        i+=1
+        while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
+            token = apply_stack[-1][0]
+            terminals = apply_stack[-1][1:]
+           
+            if token.input_var is not None:
+                # import pdb;pdb.set_trace()
+                intermediate_result =  x[token.input_var] 
+                dim_flag = token.input_var+1
+            elif token.name ==  'u':
+                intermediate_result = u
+                
+            else:
+                # import pdb;pdb.set_trace()
+                if 'diff' in token.name or 'Diff' in token.name:
+                    # import pdb;pdb.set_trace()
+                    try:
+                        # with autograd.detect_anomaly():
+                        intermediate_result = token(*[*terminals])
+                    except Exception as e:
+                        print(e)
+                        # import pdb;pdb.set_trace()
+                        return torch.tensor(float('nan')).to(u)
+                      
+                elif 'lap' in token.name:
+                    intermediate_result = token(*[*terminals, x])
+                else:
+                    # import pdb;pdb.set_trace()
+                    intermediate_result = token(*terminals)
+
+            if len(apply_stack) != 1:
+                apply_stack.pop()
+                apply_stack[-1].append(intermediate_result)
+            else:
+                return intermediate_result  
+          
+def python_execute_old(traversal, u, x):
     apply_stack = []
   
     for node in traversal:
         apply_stack.append([node])
-
+       
         while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
             token = apply_stack[-1][0]
             terminals = apply_stack[-1][1:]
-
+            
             if token.input_var is not None:
-                # import pdb;pdb.set_trace()
+                
                 intermediate_result =  x[token.input_var]
             elif token.name ==  'u':
                 intermediate_result = u
