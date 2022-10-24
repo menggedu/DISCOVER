@@ -9,7 +9,10 @@ The working mechanisms of complex natural systems tend to abide by concise and p
 The installation details can be found in [DSO](https://github.com/brendenpetersen/deep-symbolic-optimization), we recommond the Installation of all tasks.
 
 # Run
- To be updated soon.
+ Example:
+ sh train_single.sh
+ 
+ **To be updated soon**.
 
 
 
