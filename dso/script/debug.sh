@@ -22,14 +22,16 @@ job_name=kdv
 # job_name=chafee_t
 job_name=kdv_dsr
 job_name=burgers2_pinn2
+job_name=ks_0.1
+
+# echo ${job_name}
+# python test_pde.py ${job_name} ${folder}  > ./log/${folder}/result_${job_name}.log 2>&1
+
+# job_name=burgers2_pinn_t
 # job_name=RRE
 echo ${job_name}
-python test_pde.py ${job_name} ${folder} > ./log/${folder}/result_${job_name}.log 2>&1
-
-job_name=burgers2_pinn2
-job_name=RRE
-# echo ${job_name}
-# python test_pde.py ${job_name} ${folder} > ./log/${folder}/result_${job_name}.log 2>&1
+python test_pde.py ${job_name} ${folder} 
+# > ./log/${folder}/result_${job_name}.log 2>&1
 
 
 # job_name=burgers_dsr

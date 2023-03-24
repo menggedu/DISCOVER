@@ -22,7 +22,7 @@ def python_execute(traversal, u, x):
                 # import pdb;pdb.set_trace()
                 intermediate_result =  x[token.input_var] 
                 dim_flag = token.input_var+1
-            elif token.name ==  'u':
+            elif token.state_var is not None:
                 intermediate_result = u
                 
             else:
@@ -54,30 +54,33 @@ def python_execute_torch(traversal, u, x):
             terminals = apply_stack[-1][1:]
            
             if token.input_var is not None:
-                # import pdb;pdb.set_trace()
+                
                 intermediate_result =  x[token.input_var] 
                 dim_flag = token.input_var+1
-            elif token.name ==  'u':
+            elif token.state_var is not None:
                 intermediate_result = u
                 
             else:
-                # import pdb;pdb.set_trace()
+                
                 if 'diff' in token.name or 'Diff' in token.name:
-                    # import pdb;pdb.set_trace()
+                    
                     try:
                         # with autograd.detect_anomaly():
                         intermediate_result = token(*[*terminals])
                     except Exception as e:
-                        print(e)
-                        # import pdb;pdb.set_trace()
-                        return torch.tensor(float('nan')).to(u)
+                        # print(e)
+                      
+                        return None
                       
                 elif 'lap' in token.name:
                     intermediate_result = token(*[*terminals, x])
                 else:
-                    # import pdb;pdb.set_trace()
+                    
                     intermediate_result = token(*terminals)
-
+                    
+            if torch.isnan(intermediate_result).all() or torch.isinf(intermediate_result).all():
+                # print("nan or inf")
+                return None
             if len(apply_stack) != 1:
                 apply_stack.pop()
                 apply_stack[-1].append(intermediate_result)

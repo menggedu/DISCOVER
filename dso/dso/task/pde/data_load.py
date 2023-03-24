@@ -38,7 +38,7 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False):
         x = np.load("./dso/task/pde/data/chafee_infante_x.npy").reshape(-1,1)
         t = np.load("./dso/task/pde/data/chafee_infante_t.npy").reshape(-1,1)
         n_input_var = 1
-        sym_true = 'add,add,u,n3,u,diff2,u,x1'
+        sym_true = 'add,add,u1,n3,u1,diff2,u1,x1'
         
         n, m = u.shape 
 
@@ -54,7 +54,7 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False):
             u=data.get("usol")
         x=np.squeeze(data.get("x")).reshape(-1,1)
         t=np.squeeze(data.get("t").reshape(-1,1))
-        sym_true = 'add,mul,u,diff,u,x1,diff2,u,x1'
+        sym_true = 'add,mul,u1,diff,u1,x1,diff2,u1,x1'
         right_side_origin = 'right_side_origin = -1*u_origin*ux_origin+0.1*uxx_origin'
         n_input_var = 1
         
@@ -81,7 +81,7 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False):
         n,m = u.shape #512, 201
         dt = t[1]-t[0]
         dx = x[1]-x[0]
-        sym_true = 'add,mul,u,diff,u,x1,diff3,u,x1'
+        sym_true = 'add,mul,u1,diff,u1,x1,diff3,u1,x1'
 
         right_side_origin = 'right_side_origin = -0.0025*uxxx_origin-u_origin*ux_origin'
         n_input_var = 1
@@ -98,7 +98,7 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False):
         x=np.linspace(1,2,nx).reshape(-1,1)
         t=np.linspace(0,1,nt).reshape(-1,1)
 
-        sym_true = 'add,div,diff,u,x1,x1,diff2,u,x1'
+        sym_true = 'add,div,diff,u1,x1,x1,diff2,u1,x1'
         right_side_origin = 'right_side_origin = -config.divide(ux_origin, x_all) + 0.25*uxx_origin'
         n_input_var = 1
         
@@ -119,7 +119,7 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False):
             x = x[int(n*0.1):int(n*0.9)]
             t = t[int(m*0):int(m*1)]
 
-        sym_true = 'add,mul,u,diff2,u,x1,mul,diff,u,x1,diff,u,x1'
+        sym_true = 'add,mul,u1,diff2,u1,x1,mul,diff,u1,x1,diff,u1,x1'
         right_side_origin = 'right_side_origin = u_origin*uxx_origin + ux_origin*ux_origin'
         n_input_var = 1
        
@@ -129,10 +129,28 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False):
         t = np.real(data['t'].flatten()[:,None])
         x = np.real(data['x'].flatten()[:,None])
         u = np.real(data['usol']) # x first
-        # sym_true = 'add,mul,u,diff2,u,x1,mul,diff,u,x1,diff,u,x1'
-        sym_true = 'add,mul,u,diff,u,x1,diff2,u,x1'
+        # sym_true = 'add,mul,u1,diff2,u1,x1,mul,diff,u1,x1,diff,u1,x1'
+        sym_true = 'add,mul,u1,diff,u1,x1,diff2,u1,x1'
         n_input_var = 1
         # import pdb;pdb.set_trace()
+    elif dataset == 'KS':
+        data = scipy.io.loadmat('./dso/task/pde/data/kuramoto_sivishinky.mat') # course temporal grid 
+        # import pdb;pdb.set_trace()
+        t = np.real(data['t'].flatten()[:,None])
+        x = np.real(data['x'].flatten()[:,None])
+        u = np.real(data['u'])
+           
+        sym_true = 'add,mul,u1,diff,u1,x1,add,diff2,u1,x1,diff4,u1,x1'
+        n_input_var = 1
+    elif dataset == 'KS_sine':
+        data = scipy.io.loadmat('./dso/task/pde/data/KS_Sine.mat') # course temporal grid 
+        
+        t = np.real(data['t'].flatten()[:,None])
+        x = np.real(data['x'].flatten()[:,None])
+        u = np.real(data['usol'])
+           
+        sym_true = 'add,mul,u1,diff,u1,x1,add,diff2,u1,x1,diff4,u1,x1'
+        n_input_var = 1
         
     elif dataset == 'RRE':
         t = np.arange(1,10001)*0.01
@@ -143,7 +161,7 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False):
         # x = np.linspace(np.min(depth),np.max(depth),20)
         data_path = './dso/task/pde/data/loam_S1'
         u = np.load(data_path+'/collected_theta_clean.npy')
-        sym_true = 'add,diff,u,x1,add,diff2,u,x1,n2,diff,u,x1'
+        sym_true = 'add,diff,u1,x1,add,diff2,u1,x1,n2,diff,u1,x1'
         n_input_var = 1
         n, m = u.shape
         ut = np.zeros((n, m))
@@ -175,7 +193,9 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False):
         ut[idx, :] = FiniteDiff(u[idx, :], dt)
         
     if noise_level>0 and training:
-        ut = ut[math.floor(n*0.1):math.ceil(n*0.9), math.floor(m*0.1):math.ceil(m*0.9)]
+        # ut = ut[math.floor(n*0.1):math.ceil(n*0.9), math.floor(m*0.1):math.ceil(m*0.9)]
+        ut = ut[math.floor(n*0.02):math.ceil(n*0.98), math.floor(m*0.02):math.ceil(m*0.98)]
+    # x fist
     # x fist
     return u,X,t,ut,sym_true, n_input_var,None
 
@@ -210,15 +230,15 @@ def load_data_2D(dataset,noise_level=0, data_amount = 1, training=False):
         X.append(y)
         n_input_var = 2
     
-        # sym_true = 'add,Diff2,sub,n3,u,u,add,Diff2,u,x1,Diff2,u,x2,x1,Diff2,sub,sub,n3,u,u,add,Diff2,u,x1,Diff2,u,x2,x2'
+        # sym_true = 'add,Diff2,sub,n3,u1,u1,add,Diff2,u1,x1,Diff2,u1,x2,x1,Diff2,sub,sub,n3,u1,u1,add,Diff2,u1,x1,Diff2,u1,x2,x2'
         
-        # sym_true = 'sub,add,sub,n3,u,diff2,lap,lap,diff2,lap,u,x1,x2,lap,u,lap,lap,u'
+        # sym_true = 'sub,add,sub,n3,u1,diff2,lap,lap,diff2,lap,u1,x1,x2,lap,u1,lap,lap,u'
         #1th
-        # sym_true = 'Diff2,Diff2,u,x1,x2'
+        # sym_true = 'Diff2,Diff2,u1,x1,x2'
         #17th
-        # sym_true = 'sub,sub,lap,sub,lap,u,u,lap,lap,u,diff2,diff2,u,x2,x1'
+        # sym_true = 'sub,sub,lap,sub,lap,u1,u1,lap,lap,u1,diff2,diff2,u1,x2,x1'
         
-        sym_true = 'sub,lap,sub,n3,u,u,lap,lap,u'
+        sym_true = 'sub,lap,sub,n3,u1,u1,lap,lap,u1'
        
     
         ut = np.zeros((t_len, n,m))
@@ -258,9 +278,9 @@ def load_data_2D(dataset,noise_level=0, data_amount = 1, training=False):
         X.append(y)
         
         n_input_var = 2
-        sym_true = 'n3,mul,div,div,u,mul,Diff,n3,x2,x1,x2,n2,u,x1'
-        # sym_true = 'add,sub,lap,u,n3,u,u'
-        sym_true = 'add,add,Diff2,u,x1,Diff2,u,x2,sub,u,n3,u'
+        sym_true = 'n3,mul,div,div,u1,mul,Diff,n3,x2,x1,x2,n2,u1,x1'
+        # sym_true = 'add,sub,lap,u1,n3,u1,u'
+        sym_true = 'add,add,Diff2,u1,x1,Diff2,u1,x2,sub,u1,n3,u1'
 
         ut = np.zeros((t_len, n,m))
   
@@ -275,7 +295,7 @@ def load_data_2D(dataset,noise_level=0, data_amount = 1, training=False):
         else:
             u_test, ut_test = None, None  
         
-        # lap = (Diff2_2(u, x, 1)+Diff2_2(u,x,2))
+        # lap = (Diff2_2(u1, x, 1)+Diff2_2(u1,x,2))
 
     else:
         assert False, "Unknown dataset"

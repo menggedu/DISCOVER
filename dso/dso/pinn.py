@@ -22,7 +22,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from dso.task.pde.utils_nn import ANN, PDEDataset,np2tensor, tensor2np
 from dso.task.pde.utils_noise import normalize, unnormalize,load_PI_data
-from dso.task.pde.dataset import Dataset
+from dso.task.pde.dataset import Dataset,load_1d_data
 from dso.utils import  print_model_summary, eval_result, tensor2np, l2_error
 
 from dso.loss import mse_loss, pinn_loss
@@ -69,12 +69,12 @@ class PINN_model:
         logging.info(f"Total params are {total_params}")
         self.noise = config_pinn['noise']
         self.data_ratio = config_pinn['data_ratio']
+        self.coll_data = config_pinn['coll_data']
         
         self.device = device
         self.nn.to(self.device)
         self.dataset_name = dataset_name
-        # data convert
-        self.convert2tensor()
+
         
         # tensorboard
         tensorboard_file = f"{prefix}_logs"
@@ -82,19 +82,29 @@ class PINN_model:
         self.pretrain_path= f"{prefix}_pretrain.ckpt"
         self.pinn_path = f"{prefix}_pinn"
         self.pic_path = f"{prefix}"
+            
+            # data convert
+        self.convert2tensor()
         
         # optimizer
         # if config_pinn['optimizer_pretrain'] =='LBFGS':
         #     pass
         # else:
-        self.optimizer_pretrain =optim.Adam(self.nn.parameters(), lr=1e-3)
-    
+        self.optimizer_pretrain =optim.Adam(self.nn.parameters(), lr=config_pinn['lr'])
         self.optimizer = optim.Adam(self.nn.parameters(), lr=1e-3)
+        self.blgs_optimizer = torch.optim.LBFGS(self.nn.parameters(), lr=0.1, 
+                              max_iter = 80000, 
+                              max_eval = None, 
+                              tolerance_grad = 1e-05, 
+                              tolerance_change = 1e-09, 
+                              history_size = 100, 
+                              line_search_fn = 'strong_wolfe')
         # 
-        self.pretrain_epoch = 50000
-        self.pinn_epoch = 1000
+        self.pretrain_epoch =200000
+        self.pinn_epoch = config_pinn['pinn_epoch']
         self.pinn_cv_epoch = 2000
         self.cur_epoch = 0
+        self.duration = config_pinn['duration']
         self.cache = {}
         self.cache['path'] = prefix
         self.cache['noise'] = self.noise
@@ -102,9 +112,11 @@ class PINN_model:
         
     def convert2tensor(self):
         # load label data and collocation points
-        X_u_train, u_train, X_f_train, X_u_val, u_val, [lb, ub], [x_star, u_star] = load_PI_data(self.dataset_name,
+        X_u_train, u_train, X_f_train, X_u_val, u_val, [lb, ub], [x_star, u_star] = load_1d_data(self.dataset_name,
                                                                                                  self.noise,
-                                                                                                 self.data_ratio
+                                                                                                 self.data_ratio,
+                                                                                                 self.pic_path,
+                                                                                                 self.coll_data 
                                                                                                  )
         self.x = X_u_train[:,0:1]
         self.t = X_u_train[:,1:2]
@@ -115,12 +127,7 @@ class PINN_model:
         
         self.x_all = np.vstack((self.x, self.x_val))
         self.t_all = np.vstack((self.t, self.t_val))
-        self.x_local, self.t_local = self.local_sample(self.x, self.t, lb,ub)
-        # self.X_u_train = np2tensor(X_u_train, self.device)
-        # self.X_f_train = np2tensor(X_f_train,self.device, requires_grad=True)
-        # self.X_u_val = np2tensor(X_u_val,self.device, requires_grad=False)
-        self.x_local = np2tensor(self.x_local, self.device, requires_grad=True)
-        self.t_local = np2tensor(self.t_local, self.device, requires_grad=True)
+
         self.x = np2tensor(self.x, self.device, requires_grad=True)
         self.t = np2tensor(self.t, self.device, requires_grad=True)
         self.x_f = np2tensor(self.x_f, self.device, requires_grad=True)
@@ -141,7 +148,10 @@ class PINN_model:
         self.ub = np2tensor(ub, self.device )
         
     def local_sample(self, x,t, lb, ub,sample=False):
+        x,t,lb,ub=tensor2np(x),tensor2np(t),tensor2np(lb),tensor2np(ub)
         if sample:
+            
+            # import pdb;pdb.set_trace()
             delta_xt = (ub-lb)/100
             xt = np.concatenate((x,t), axis = 1)
             xt = np.repeat(xt,20,axis =0)
@@ -152,8 +162,31 @@ class PINN_model:
             xt = np.vstack((xt_new, xt))
         else:
             xt = np.concatenate((x,t), axis = 1)
-        return xt[:,0:1], xt[:,1:2]
+            
+        self.x_local = np2tensor(xt[:,0:1], self.device, requires_grad=True)
+        self.t_local = np2tensor(xt[:,1:2], self.device, requires_grad=True)
         
+    def closure(self,):
+        self.blgs_optimizer.zero_grad()
+        u_predict = self.net_u(torch.cat([self.x, self.t], axis= 1))
+        loss = mse_loss(u_predict, self.u_train).sum()
+        loss.backward()
+        
+        u_val_predict = self.net_u(torch.cat([self.x_val, self.t_val], axis = 1))
+        loss_val = mse_loss(u_val_predict, self.u_val).sum()
+        
+        self.cur_epoch+=1
+        
+                        
+        if (self.cur_epoch+1) % 500 == 0:      
+            logging.info(f'epoch: {self.cur_epoch+1}, loss_u: {loss.item()} , loss_val:{loss_val.item()}' )
+          
+        self.writer.add_scalars("pretrain_bfgs/mse_loss",{
+                "loss_train": loss.item(),
+                "loss_val": loss_val.item()
+            }, self.cur_epoch)
+        return loss
+    
     def pretrain(self):
         
         best_loss = 1e8
@@ -184,16 +217,29 @@ class PINN_model:
             loss.backward()
             self.optimizer_pretrain.step()
             
-            if i-last_improvement>500:
+            if i-last_improvement>self.duration:
                 logging.info(f"stop training at epoch: {i+1}, loss_u: {loss.item()} , loss_val:{loss_val.item()}")
                   
                 break
         u_pred, l2 = self.evaluate()
-        logging.info(f"full Field Error u: {l2}")  
+        logging.info(f"full Field Error u: {l2}") 
+        self.cur_epoch = self.pretrain_epoch
+        
+        #bfgs pretrain
+        # self.blgs_optimizer.step(self.closure)
+        # u_pred, l2 = self.evaluate()
+        # logging.info(f"after bfgs full Field Error u: {l2}") 
+        
+        
+        #concat validation and training point
+        self.x = torch.cat([self.x, self.x_val], axis = 0)
+        self.t = torch.cat([self.t, self.t_val], axis =0)
+        self.u_train = torch.cat([self.u_train,self.u_val], axis = 0)
         # self.load_model(self.pretrain_path,keep_optimizer=False)
         # u_pred, l2 = self.evaluate()
         # logging.info(f"full Field Error u: {l2}")  
-        self.cur_epoch = self.pretrain_epoch
+        
+        
         
         
 
@@ -245,34 +291,37 @@ class PINN_model:
         self.cur_epoch+=self.pinn_cv_epoch 
         self.plot_coef()
          
-    def train_pinn(self, program_pde, count = 1, coef=0.1, same_threshold=0, last=False):
+    def train_pinn(self, program_pde, count = 1, coef=0.1, local_sample=True, last=False):
         expression =  program_pde.str_expression
         self.cache['exp'] = expression
         logging.info(f"\n************The {count}th itertion for pinn training.**************** ")
         logging.info(f"start training pinn with traversal {expression}")
-        # if same_threshold>0:  
-        #     coef = coef*same_threshold
-        
-        # path = './log/debug/Burgers2_2023-02-19-235657/dso_Burgers2_0_pretrain.ckpt'
-        # self.load_model(path)
+        program_pde.switch_tokens()
         if last:
-            self.pinn_epoch *=2
-            # coef = coef*2
+            self.pinn_epoch *=3
+            coef = coef*2
+            best_loss = 1e8
         logging.info(f"coef:{coef}")
+        if local_sample:
+            self.local_sample(self.x, self.t, self.lb, self.ub)
         
         for epoch in range(self.pinn_epoch):
             self.optimizer.zero_grad()
             u_predict = self.net_u(torch.cat([self.x, self.t], axis= 1))
             loss_mse = mse_loss(u_predict, self.u_train).sum()
             loss_res1 = pinn_loss(self,  program_pde, self.x_f, self.t_f, program_pde.w)
-            loss_res2= pinn_loss(self,  program_pde, self.x_local, self.t_local, program_pde.w)
-            # loss_res = self.pinn_loss_explicitly()
-            if torch.isnan(loss_res1):
+            
+            #local samling based on observations
+            if local_sample:
+                loss_res2= pinn_loss(self,  program_pde, self.x_local, self.t_local, program_pde.w)
+            else:
+                loss_res2=torch.tensor([0]).to(loss_mse)
+                
+            if torch.isnan(loss_res1) or torch.isnan(loss_res2):
                 logging.info("nan")
                 loss_res1=torch.tensor([0]).to(loss_mse)
-            if torch.isnan(loss_res2):
-                logging.info("nan")
                 loss_res2=torch.tensor([0]).to(loss_mse)
+                
             loss = coef*(loss_res1+loss_res2)+loss_mse
             loss.backward()
             self.optimizer.step()
@@ -287,6 +336,15 @@ class PINN_model:
                 "loss":loss.item()
             }, self.cur_epoch+epoch)
             
+            if last:
+                if loss.item()< best_loss:
+                    best_loss = loss.item()
+                    last_improvement=epoch
+                    torch.save(self.nn.state_dict(), self.pinn_path+f'{count}_best.ckpt')
+                
+                if epoch-last_improvement>200:
+                    break
+
         u_pred, l2 = self.evaluate()
         logging.info(f"full Field Error u: {l2}")   
         torch.save(self.nn.state_dict(), self.pinn_path+f'{count}.ckpt')     

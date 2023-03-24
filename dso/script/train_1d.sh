@@ -6,10 +6,9 @@ echo ${folder}
 
 mkdir -p ./log/${folder}
 
-job_name=Kdv
+job_name=ks
 echo ${job_name}
-python test_pde.py ${job_name} ${folder}
-# > ./log/${folder}/result_${job_name}.log 2>&1
+python test_pde.py ${job_name} ${folder} > ./log/${folder}/result_${job_name}.log 2>&1
 
 # job_name=divide
 # job_name=ac

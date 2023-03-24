@@ -42,7 +42,8 @@ def learn(sess, controller, pool, gp_controller, pinn_model, output_file,
           save_cache_r_min=0.9, save_freq=None, save_token_count=False,
           save_all_rewards = False, 
           use_start_size=False,
-          stability_selection = False
+          stability_selection = False,
+          remove_same = False,
           ):
 
     """
@@ -196,7 +197,7 @@ def learn(sess, controller, pool, gp_controller, pinn_model, output_file,
     # Create the priority queue
     k = controller.pqt_k
     if controller.pqt and k is not None and k > 0:
-        priority_queue = make_queue(priority=True, capacity=k)
+        priority_queue = make_queue(priority=True, capacity=k, remove_same = remove_same)
     else:
         priority_queue = None
 
@@ -321,7 +322,8 @@ def learn(sess, controller, pool, gp_controller, pinn_model, output_file,
             Program.cache.update(pool_p_dict)
                     
         # Compute rewards (or retrieve cached rewards)
-
+        # if epoch>8:
+        #     import pdb;pdb.set_trace()
         r = np.array([p.r_ridge for p in programs])
         r_train = r
         
@@ -626,7 +628,7 @@ def learn(sess, controller, pool, gp_controller, pinn_model, output_file,
             mse_list.append(mse)
             cv_list.append(cv)
             
-        mse_cv = criterion(mse_list, cv_list, type = 'norm_multiply')
+        mse_cv = criterion(mse_list, cv_list, type = 'multiply')
         # import pdb;pdb.set_trace()
         ranking = np.argsort(mse_cv, axis = 0)[0]
         best_count = np.bincount(ranking)

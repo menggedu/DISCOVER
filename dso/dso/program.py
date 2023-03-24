@@ -237,13 +237,13 @@ class Program(object):
         # Can be empty if we are unpickling 
         if tokens is not None:
             self._init(tokens, on_policy)
-            
+    
     def _init(self, tokens, on_policy=True):
 
         self.traversal = [Program.library[t] for t in tokens]
         self.default_terms = [[Program.library[t]] for term in Program.default_terms for t in term]
         # import pdb;pdb.set_trace()
-        self.STRidge = STRidge(self.traversal.copy(),self.default_terms, noise_level=Program.task.noise_level, spatial_error=Program.task.spatial_error)
+        self.set_stridge()
         
         self.const_pos = [i for i, t in enumerate(self.traversal) if isinstance(t, PlaceholderConstant)]
         self.len_traversal = len(self.traversal)
@@ -277,7 +277,13 @@ class Program(object):
                     and trigger the end of a traversal at the wrong time
                     """
                     danglings = danglings[danglings != dangling - 1] 
-                        
+    
+    def set_stridge(self):
+        self.STRidge = STRidge(self.traversal.copy(),self.default_terms, noise_level=Program.task.noise_level,\
+            max_depth=Program.task.max_depth, 
+            cut_ratio=Program.task.cut_ratio,
+            spatial_error=Program.task.spatial_error)    
+                      
     def __getstate__(self):
         
         have_r = "r" in self.__dict__
@@ -335,8 +341,14 @@ class Program(object):
         return self.task.stability_test(self)
     
     def switch_tokens(self):
-        torch_tokens = Program.library.torch_tokens # dicts
+        torch_tokens = Program.library.torch_tokens # dicts key == numpy_op+t, value = torch tokens
+        if len(torch_tokens)==0:
+            # print("AD Utilized")
+            return
         np_tokens_name = Program.library.np_names
+        if "_t" in np_tokens_name[0]:
+            # use ad to generate meta data 
+            return 
         new_traversal = []
         for t in self.traversal:
             if t.name in np_tokens_name:
@@ -344,8 +356,7 @@ class Program(object):
             else:
                 new_traversal.append(t)
         self.traversal = new_traversal
-        self.STRidge = STRidge(self.traversal.copy(),self.default_terms, \
-            noise_level=Program.task.noise_level, spatial_error=Program.task.spatial_error)
+        self.set_stridge()
     
     @cached_property
     def mse(self):
@@ -429,8 +440,12 @@ class Program(object):
         Program.library = task.library
         
     @classmethod
-    def reset_task(cls, model):
-        Program.task.generate_meta_data(model)  
+    def reset_task(cls, model, generate_type):
+        
+        '''
+        generate_type = AD or FD
+        '''
+        Program.task.generate_meta_data(model,generate_type)  
          
     @classmethod
     def set_default_terms(cls, default_terms):
@@ -488,7 +503,7 @@ class Program(object):
         """Evaluates and returns the reward of the program"""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            
+            warnings.filterwarnings('ignore', 'Intel MKL ERROR')
             result, self.w = self.task.reward_function(self)
             return result
                 

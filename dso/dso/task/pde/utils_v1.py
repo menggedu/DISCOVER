@@ -104,7 +104,7 @@ def Diff3(u, dxt, dim, name='x'):
     return uxt
 
 @jit(nopython=True)  
-def Diff4(u, dxt,dim,  name='x'):
+def Diff4(u, dxt, dim, name='x'):
     """
     Here dx is a scalar, name is a str indicating what it is
     """
@@ -112,18 +112,14 @@ def Diff4(u, dxt,dim,  name='x'):
     n, m = u.shape
     uxt = np.zeros((n, m))
 
+    
     if name == 'x':
-        dxt = dxt[2]-dxt[1]
-        for i in range(m):
-            uxt[:, i] = FiniteDiff2(u[:, i], dxt)
-            uxt[:,i] = FiniteDiff2(uxt[:,i],dxt )
-    elif name == 't':
-        for i in range(n):
-            uxt[i, :] = FiniteDiff2(u[i, :], dxt)
-            uxt[i,:] = FiniteDiff2(uxt[:,i],dxt )
-
+        uxt=Diff2(u,dxt,dim,name)
+        uxt = Diff2(uxt,dxt, dim, name)
     else:
+        assert False
         NotImplementedError()
+ 
 
     return uxt
 

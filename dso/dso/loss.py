@@ -23,7 +23,7 @@ def pinn_loss(model,p,x,t, w):
     ut = torch.autograd.grad(outputs=u,inputs = t,
                                 grad_outputs = torch.ones_like(u),
                                  create_graph=True)[0]
-    p.switch_tokens()
+    
     
     residual = p.STRidge.calculate_RHS(u,[x],ut,w)
        

@@ -9,7 +9,7 @@ from dso.functions import create_tokens,add_torch_tokens
 from dso.task.pde.data_load import *
 from dso.task.pde.utils_nn import load_noise_data,plot_field, plot_ut,torch_diff
 from dso.task.pde.utils_noise import *
-from dso.task.pde.utils_v1 import FiniteDiff, Diff, Diff2 
+from dso.task.pde.utils_v1 import FiniteDiff, Diff, Diff2 ,Diff4
 
 class PDEPINNTask(PDETask):
     """
@@ -27,9 +27,12 @@ class PDEPINNTask(PDETask):
                  data_amount = 1,
                  use_meta_data = False,
                  use_torch = False,
+                 sym_true_input =None,
+                 max_depth=4,
                  normalize_variance=False, protected=False,
                  spatial_error = True, 
                  decision_tree_threshold_set=None,
+                 cut_ratio = 0.03,
                  n_input_var = None):
 
 
@@ -40,14 +43,18 @@ class PDEPINNTask(PDETask):
         self.shape = self.u.shape
         self.spatial_error = spatial_error
         self.ut=ut
-        self.sym_true = sym_true
+        self.sym_true = sym_true if sym_true_input is None else sym_true_input
         self.ut = self.ut.reshape(-1,1)
         self.ut_true = ut_true.reshape(-1,1)
         self.noise_level = data_noise_level
+        self.max_depth = max_depth
+        self.cut_ratio = cut_ratio
         if torch.is_tensor(self.ut):
             self.ut = tensor2np(self.ut)
 
 
+        self.x_ori = self.x
+        self.t_ori = self.t
         """
         Configure train/test reward metrics.
         """
@@ -78,6 +85,7 @@ class PDEPINNTask(PDETask):
                                decision_tree_threshold_set=decision_tree_threshold_set,
                                task_type='pde')
         self.library = Library(tokens)
+        
         torch_tokens = add_torch_tokens(function_set, protected = protected)
         self.library.add_torch_tokens(torch_tokens)
         # Set stochastic flag
@@ -148,40 +156,52 @@ class PDEPINNTask(PDETask):
 
         return info
 
-    def generate_meta_data(self, model, plot= True):
+    def generate_meta_data(self, model, generation_type = 'AD', plot= True):
         print("generating metadata")
         u, x, cache = model.generate_meta_data()
         cache['iter'] = self.iter
-        
+        cache['generation_type'] =generation_type
         if plot:
             u_net = tensor2np(u).reshape(self.shape[1],self.shape[0])
             u_true = self.u_true
             ut_true = self.ut_true.reshape(self.shape)
             #t first
             
-            plot_field(u_true.T, u_net,u_net,self.x[0],self.t, 'u', cache)
+            plot_field(u_true.T, u_net, u_net,self.x_ori[0],self.t_ori, 'u', cache)
             ut_net = np.zeros((self.shape))
             for idx in range(self.shape[0]):
-                ut_net[idx, :] = FiniteDiff(u_net.T[idx, :], self.t[1]-self.t[0]) 
+                ut_net[idx, :] = FiniteDiff(u_net.T[idx, :], self.t_ori[1]-self.t_ori[0]) 
             ut_torch = torch_diff(u,x, order=1,dim=1)
             ut_torch = tensor2np(ut_torch).reshape(self.shape[1],self.shape[0])
-            plot_field(ut_true.T,ut_net.T,ut_torch,self.x[0], self.t,'ut', cache)
+            plot_field(ut_true.T,ut_net.T,ut_torch,self.x_ori[0], self.t_ori,'ut', cache)
+            
+            ux_true = Diff(u_true,self.x_ori[0],1)
+            ux_torch = torch_diff(u,x, order=1,dim=0)
+            ux_torch = tensor2np(ux_torch).reshape(self.shape[1],self.shape[0])
+            ux_net = Diff(u_net.T,self.x_ori[0] ,1)
+            plot_field(ux_true.T,ux_net.T,ux_torch,self.x_ori[0], self.t_ori,'ux', cache)
+            
+            uxx_true = Diff2(u_true,self.x_ori[0],1)
+            uxx_torch = torch_diff(u,x, order=2,dim=0)
+            uxx_torch = tensor2np(uxx_torch).reshape(self.shape[1],self.shape[0])
+            uxx_net = Diff2(u_net.T,self.x_ori[0] ,1)
+            plot_field(uxx_true.T,uxx_net.T,uxx_torch,self.x_ori[0], self.t_ori,'uxx', cache)
+            
+            uxxxx_true = Diff4(u_true,self.x_ori[0],1)
+            uxxxx_torch = torch_diff(u,x, order=4,dim=0)
+            uxxxx_torch = tensor2np(uxxxx_torch).reshape(self.shape[1],self.shape[0])
+            uxxxx_net = Diff4(u_net.T,self.x_ori[0],1 )
+            plot_field(uxxxx_true.T,uxxxx_net.T,uxxxx_torch,self.x_ori[0], self.t_ori,'uxxxx', cache)
             self.iter+=1
-            
-        n,m=self.shape
-        self.u = tensor2np(u).reshape(m,n).T   
-        # predicted results is t_first, discover process is x first
-
-        dt = self.t[1]-self.t[0]
-        self.ut = np.zeros((n,m))
-        for idx in range(n):
-            self.ut[idx, :] = FiniteDiff(self.u[idx, :], dt)
-            
-        # cut_bound
-        n,m = self.ut.shape
-        self.ut = self.ut[5:-5,5:-5]
-        self.ut = self.ut.reshape(-1)
-
+        
+        if generation_type=='AD':
+            # import pdb;pdb.set_trace()
+            self.AD_generate(x,model )
+        elif generation_type =='fd':  
+            self.FD_generate(u)
+        else:
+            print(generation_type)
+            assert False
 
         def plot_diff_ad(u_true, u_noise_np,u_noise_nn, x_list,x_nn, dt):
             n,m = u_true.shape
@@ -208,7 +228,37 @@ class PDEPINNTask(PDETask):
             plot_ut(ut_true.T, ut_fd.T,ut_torch, self.x[0], self.t)   
             plot_ut(ux_true.T, ux_fd.T,ux_torch, self.x[0], self.t)    
             plot_ut(uxx_true.T, uxx_fd.T,uxx_torch, self.x[0], self.t)  
+    
+    def AD_generate(self, x, model):
+        device = x.device
+        # print(device)
+        x = tensor2np(x)
+        x,t = x[:,:-1],x[:,-1:]
+        x,t = cut_bound_quantile(x,t,quantile = self.cut_ratio)
+        x = np2tensor(x,device, requires_grad=True)
+        t = np2tensor(t, device, requires_grad=True)
+        self.x = [x]
+        self.t = t
+        xt = torch.cat((x, self.t), axis = 1)
+        self.u = model.net_u(xt)
+        ut = torch_diff(self.u, xt, order = 1, dim = 1)
+        self.ut = tensor2np(ut)
+    
+    def FD_generate(self, u):
+        n,m=self.shape
+        self.u = tensor2np(u).reshape(m,n).T   
+        # predicted results is t_first, discover process is x first
+
+        dt = self.t[1]-self.t[0]
+        self.ut = np.zeros((n,m))
+        for idx in range(n):
+            self.ut[idx, :] = FiniteDiff(self.u[idx, :], dt)
             
+        # cut_bound
+        n,m = self.ut.shape
+        self.ut = cut_bound(self.ut, percent=self.cut_ratio)
+        self.ut = self.ut.reshape(-1)  
+        
     def stability_test(self,p):
         self.mse, self.cv = self.cal_mse_cv(p)
         mse = np.array(self.mse)

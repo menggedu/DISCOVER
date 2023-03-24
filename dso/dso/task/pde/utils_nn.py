@@ -213,6 +213,7 @@ def torch_diff(u, xt, order = 1, dim=None):
                                  create_graph=True)[0]
     if dim is not None:
         grad = grad[:,dim:dim+1]
+        
     for _ in range(order-1):
         grad = torch.autograd.grad(outputs=grad,inputs = xt,
                                 grad_outputs = torch.ones_like(u),
@@ -250,29 +251,42 @@ def plot_u_diff( u_diff1,u_diff2,u_diff3, x, t):
     plt.show()
     
 def plot_field(u_true,u,u_nn, x,t, name , cache):
+    t_shape, x_shape= u.shape
+    try:
+        if torch.is_tensor(x):
+            x = tensor2np(x)
+            x = np.unique(x)
+        if torch.is_tensor(t):
+            t =tensor2np(t)
+            t= np.unique(t)
+    except:
+        import pdb;pdb.set_trace()
     path = cache['path']
     noise = cache['noise']
     iter = cache['iter']
     title = cache['exp'] if 'exp' in cache else "pretrain"
     
-    t_shape, x_shape= u.shape
-    # t = np.arange(t_shape)
-    # x = np.arange(x_shape)
     cmap = 'seismic'
     xx, tt = np.meshgrid(x,t)
     # import pdb;pdb.set_trace()
     
-    fig = plt.figure(figsize=(16,9))
+    fig = plt.figure(figsize=(21,9))
     ax = fig.add_subplot(231)
     c = ax.pcolormesh(xx, tt, u_true, cmap = cmap)
     fig.colorbar(c, ax=ax)
     
     ax = fig.add_subplot(232)
-    c = ax.pcolormesh(xx, tt, u, cmap = cmap)
+    if cache['generation_type'] == 'AD':
+        c = ax.pcolormesh(xx, tt, u_nn, cmap = cmap)
+    else:
+        c = ax.pcolormesh(xx, tt, u, cmap = cmap)
     fig.colorbar(c, ax=ax)
     
     ax = fig.add_subplot(233)
-    c = ax.pcolormesh(xx, tt, u_true-u, cmap = cmap)
+    if cache['generation_type'] == 'AD':
+        c = ax.pcolormesh(xx, tt, u_true-u_nn, cmap = cmap)
+    else:
+        c = ax.pcolormesh(xx, tt, u_true-u, cmap = cmap)
     fig.colorbar(c, ax=ax)
     
     
@@ -285,16 +299,22 @@ def plot_field(u_true,u,u_nn, x,t, name , cache):
     
     ax = fig.add_subplot(235)
     ax.plot(x, u_true[t_shape//2,:], label = "true")
-    ax.plot(x, u[t_shape//2,:], label = 'fd')
+    # ax.plot(x, u[t_shape//2,:], label = 'fd')
     ax.plot(x, u_nn[t_shape//2,:], label = 'NN')
     ax.set_xlabel("t len")
     ax.legend()
     ax.set_title(title)
     
     ax = fig.add_subplot(236)
-
+    ax.plot(x, u_true[t_shape//2,:], label = "true")
+    ax.plot(x, u[t_shape//2,:], label = 'fd')
+    ax.set_xlabel("t len")
+    ax.legend()
+    ax.set_title(title)
     
     plt.savefig(path+name+f"_{iter}.png")
+    if name == 'u':
+        np.save(path+name+f"_{iter}.npy",u)
     
 def plot_ut(ut_true, ut_noise_fd, ut_diff, x, t):
     t_shape, x_shape = ut_true.shape
@@ -334,9 +354,9 @@ def plot_ut(ut_true, ut_noise_fd, ut_diff, x, t):
     
     plt.show()
 
-def cut_bound(x, t):
-    low_x, low_t= np.quantile(x,0.1),np.quantile(t,0.1)
-    up_x,up_t =np.quantile(x,0.9), np.quantile(t,0.9)
+def cut_bound_quantile(x, t, quantile=0.1):
+    low_x, low_t= np.quantile(x,quantile),np.quantile(t,quantile)
+    up_x,up_t =np.quantile(x,1-quantile), np.quantile(t,1-quantile)
     x_limit = np.logical_and(x>low_x,x<up_x)
     t_limit = np.logical_and(t>low_t, t<up_t)
     limit = np.logical_or(x_limit,t_limit).reshape(-1)

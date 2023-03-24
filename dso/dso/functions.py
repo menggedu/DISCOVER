@@ -43,7 +43,12 @@ def harmonic(x1):
 def protected_div_torch(x1, x2):
     new_x2 = torch.where(torch.abs(x2)>1e-8, x2, torch.ones(x2.shape).to(x2) *1e-8)
     return torch.divide(x1,new_x2)
-
+def protected_n2_torch(x1):
+    new_x2 = torch.where(torch.abs(x1)< 1e6, torch.square(x1), torch.ones(x1.shape).to(x1) *0.0)
+    return new_x2
+def protected_n3_torch(x1):
+    new_x2 = torch.where(torch.abs(x1)< 1e6, torch.pow(x1,3), torch.ones(x1.shape).to(x1) *0.0)
+    return new_x2
 add_ops = [
     Token(Diff, "diff", arity=2, complexity=2),
     Token(Diff2, "diff2", arity=2, complexity=3),
@@ -63,8 +68,10 @@ add_ops = [
     Token(torch.subtract, "sub_t", arity=2, complexity=1),
     Token(torch.multiply, "mul_t", arity=2, complexity=1),
     Token(protected_div_torch, "div_t", arity=2, complexity=2),
-    Token(torch.square, "n2_t", arity=1, complexity=2),
-    Token(partial(torch.pow, exponent=3), "n3_t", arity=1, complexity=3),
+    # Token(torch.square, "n2_t", arity=1, complexity=2),
+    # Token(partial(torch.pow, exponent=3), "n3_t", arity=1, complexity=3),
+    Token(protected_n2_torch, "n2_t", arity=1, complexity=2),
+    Token(protected_n3_torch, "n3_t", arity=1, complexity=3),
 ]
 
 # Annotate unprotected ops
@@ -74,8 +81,6 @@ unprotected_ops = [
     Token(np.subtract, "sub", arity=2, complexity=1),
     Token(np.multiply, "mul", arity=2, complexity=1),
     Token(np.divide, "div", arity=2, complexity=2),
-    
-
 
     # Built-in unary operators
     Token(np.sin, "sin", arity=1, complexity=3),
@@ -180,7 +185,7 @@ UNARY_TOKENS    = set([op.name for op in function_map.values() if op.arity == 1]
 BINARY_TOKENS   = set([op.name for op in function_map.values() if op.arity == 2])
 
 
-def create_tokens(n_input_var, function_set, protected,torch_add=False, decision_tree_threshold_set=None, task_type ='regression'):
+def create_tokens(n_input_var, function_set, protected,n_state_var=1, torch_add=False, decision_tree_threshold_set=None, task_type ='regression'):
     """
     Helper function to create Tokens.
 
@@ -208,10 +213,12 @@ def create_tokens(n_input_var, function_set, protected,torch_add=False, decision
         tokens.append(token)
     # main variables
     if task_type == 'pde':
-        token = Token(name = 'u', arity = 0, complexity=1,
-                            function = None,
-                )
-    tokens.append(token)
+
+        for i in range(n_state_var):
+            token = Token(name="u{}".format(i + 1), arity=0, complexity=1,
+                        function=None, state_var=i)
+
+            tokens.append(token)
 
     for op in function_set:
 
@@ -245,9 +252,12 @@ def create_tokens(n_input_var, function_set, protected,torch_add=False, decision
 def add_torch_tokens(function_set, protected):
     tokens = {}
     for op in function_set:
-    
+        
         # Registered Token
         if op in function_map:
+            if "_t" in op:
+                # AD 
+                return {}
             op+='_t'
             # Overwrite available protected operators
             if protected and not op.startswith("protected_"):

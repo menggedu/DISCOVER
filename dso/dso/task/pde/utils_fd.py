@@ -26,7 +26,7 @@ def FiniteDiff2(u, dx):
     return ux
 
 
-def Diff(u, dxt, name='x'):
+def Diff(u, dxt,dim, name='x'):
     """
     Here dx is a scalar, name is a str indicating what it is
     """
@@ -42,7 +42,7 @@ def Diff(u, dxt, name='x'):
     return uxt
 
 
-def Diff2(u, dxt, name='x'):
+def Diff2(u, dxt,dim, name='x'):
     """
     Here dx is a scalar, name is a str indicating what it is
     """
@@ -58,7 +58,7 @@ def Diff2(u, dxt, name='x'):
 
     return uxt
 
-def Diff3(u, dxt, name='x'):
+def Diff3(u, dxt, dim, name='x'):
     """
     Here dx is a scalar, name is a str indicating what it is
     """
@@ -75,7 +75,7 @@ def Diff3(u, dxt, name='x'):
 
     return uxt
 
-def Diff4(u, dxt, name='x'):
+def Diff4(u, dxt,dim, name='x'):
     """
     Here dx is a scalar, name is a str indicating what it is
     """

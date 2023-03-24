@@ -4,6 +4,45 @@ import torch
 import scipy
 from pyDOE import lhs
 import matplotlib.pyplot as plt
+import math
+
+
+
+def cut_bound_quantile(x, t, quantile=0.1):
+    low_x, low_t= np.quantile(x,quantile, axis=0),np.quantile(t,quantile,axis = 0)
+    up_x,up_t =np.quantile(x,1-quantile, axis =0), np.quantile(t,1-quantile,axis =0)
+    x_dim = len(low_x)
+    x_len = len(x)
+    x_limit = np.ones(x_len, dtype=np.bool) 
+    # import pdb;pdb.set_trace()
+    for i in range(x_dim):
+        
+        x_limit_cur = np.logical_and(x[:,i]>low_x,x[:,i]<up_x)
+        x_limit = np.logical_and(x_limit_cur, x_limit)
+        
+    t_limit = np.logical_and(t>low_t, t<up_t).reshape(-1)
+    limit = np.logical_and(x_limit,t_limit).reshape(-1)
+   
+    x= x[limit,:]
+    t= t[limit,:]
+    return x, t
+
+def cut_bound(result,percent, test=False):
+    
+    r_shape = result.shape
+    low_bound = [ math.floor(percent*dim) for dim in r_shape ]
+    up_bound = [ math.ceil((1-percent)*dim) for dim in r_shape ]
+    if len(r_shape)==2:
+        result = result[low_bound[0]:up_bound[0],low_bound[1]:up_bound[1]]
+        # result = result[5:-5,5:-5]
+    else:
+        
+        if not test:
+            result = result[low_bound[0]:up_bound[0],low_bound[1]:up_bound[1], low_bound[2]:up_bound[2]]
+        else:
+            result = result[:,low_bound[1]:up_bound[1], low_bound[2]:up_bound[2]]
+    return result           
+
 def tensor2np(tensor):
     array = tensor.cpu().data.numpy()
     return array
@@ -48,94 +87,12 @@ def unnormalize(x, normalize_params):
     x = x*n2+n1
     return x
 
-def PolyDiff(u, x, deg = 3, diff = 1, width = 5):
-    
-    """
-    u = values of some function
-    x = x-coordinates where values are known
-    deg = degree of polynomial to use
-    diff = maximum order derivative we want
-    width = width of window to fit to polynomial
-
-    This throws out the data close to the edges since the polynomial derivative only works
-    well when we're looking at the middle of the points fit.
-    """
-
-    u = u.flatten()
-    x = x.flatten()
-
-    n = len(x)
-    du = np.zeros((n - 2*width,1))
-
-    # Take the derivatives in the center of the domain
-    for j in range(width, n-width):
-
-        # Note code originally used an even number of points here.
-        # This is an oversight in the original code fixed in 2022.
-        points = np.arange(j - width, j + width + 1)
-
-        # Fit to a polynomial
-        poly = np.polynomial.chebyshev.Chebyshev.fit(x[points],u[points],deg)
-
-        # Take derivatives
-
-        du[j-width,0] = poly.deriv(m=diff)(x[j])
-
-    return du
-
-def poly_diff(u,dxt,name='x',diff=1, width_x = 20, width_t=10 ):
-    n, m = u.shape
-    
-    m2 = m-2*width_t
-    offset_t = width_t
-    n2 = n-2*width_x
-    offset_x = width_x
-    u_out = np.zeros((n,m))
-    if name == 't':
-        ut = np.zeros((n2,m2))
-        dt = dxt[1]-dxt[0]       
-        T = np.linspace(0,(m-1)*dt,m)
-        for i in range(n2):
-            ut[i,:] = PolyDiff(u[i+offset_x,:],T,diff=1,width=width_t,deg=5)[:,0]
-        # ut = np.reshape(ut, (n2*m2,1),  order='F')
-        
-        return ut
-    else:
-    
-        ux = np.zeros((n2,m2))
-        dx = dxt[1]-dxt[0] 
-        for i in range(m2):
-            ux[:,i] = PolyDiff(u[:,i+offset_t],np.linspace(0,(n-1)*dx,n),diff=diff,width=width_x,deg=5)[:,0]
-        u[offset_x:n-offset_x,offset_t:m-offset_t] = ux
-        return u
-        
-def ConvSmoother(x, p, sigma):
-    """
-    Smoother for noisy data
-
-    Inpute = x, p, sigma
-    x = one dimensional series to be smoothed
-    p = width of smoother
-    sigma = standard deviation of gaussian smoothing kernel
-    """
-
-    n = len(x)
-    y = np.zeros(n)
-    g = np.exp(-np.power(np.linspace(-p,p,2*p),2)/(2.0*sigma**2))
-
-    for i in range(n):
-        a = max([i-p,0])
-        b = min([i+p,n])
-        c = max([0, p-i])
-        d = min([2*p,p+n-i])
-        y[i] = np.sum(np.multiply(x[a:b], g[c:d]))/np.sum(g[c:d])
-        
-    return y
-
 
 def load_PI_data(dataset,
                  noise_level,
                  data_ratio,
+                 pic_path,
+                 coll_num = 50000,
                  spline_sample = False
                  ):
     """_summary_
@@ -201,7 +158,7 @@ def load_PI_data(dataset,
             
     # Collocation points
     
-    N_f = 50000
+    N_f = coll_num
 
     X_f_train = lb + (ub-lb)*lhs(2, N_f)
 #    X_f_train = lb + (ub-lb)*sobol_seq.i4_sobol_generate(2, N_f)        
@@ -230,5 +187,5 @@ def load_PI_data(dataset,
     ax.legend()
     ax = fig.add_subplot(1,3,3)
     ax.scatter(X_u_train[:,0],X_u_train[:,1])
-    # plt.show()
+    plt.savefig(pic_path+'data.png',dpi=300)
     return X_u_train, u_train_noise, X_f_train, X_u_val, u_val, [lb, ub], [X_star, u_star]

@@ -19,6 +19,7 @@
       "n_hidden":20,
       "out_dim":1,
       "activation":"tanh",
+      "local_sample":true,
       "coef_pde":1,
       // data
       "data_ratio":0.04,

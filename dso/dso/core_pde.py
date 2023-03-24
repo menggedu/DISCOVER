@@ -53,6 +53,8 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
 
     def __init__(self, config=None, pde_config=None):
         self.set_config(config, pde_config)
+        _, file_name = os.path.split(config)
+        self.job_name = file_name.split('.')[0]
         self.sess = None
 
     def setup(self, ):
@@ -92,16 +94,17 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
         
         # path = './log/debug/Burgers2_2023-02-19-235657/dso_Burgers2_0_pretrain.ckpt'
         # self.denoise_pinn.load_model(path)
-        Program.reset_task(self.denoise_pinn)
+        Program.reset_task(self.denoise_pinn, self.config_pinn['generation_type'])
         
         
-    def pinn_train(self, best_p,count,coef=0.1,same_threshold=0,last=False):
+    def pinn_train(self, best_p,count,coef=0.1,local_sample=False,last=False):
         # sym = 'add,sub,diff,mul,div,u,u,n2,u,x1,add,u,mul,u,u,diff2,u,x1'
         # best_p = from_str_tokens(sym)
         # r = best_p.r_ridge
         # print(f"reward is {r}")
-        self.denoise_pinn.train_pinn(best_p,count,coef=coef,same_threshold=same_threshold,last=last)
-        Program.reset_task(self.denoise_pinn)
+        self.denoise_pinn.train_pinn(best_p,count,coef=coef,local_sample=local_sample,last=last)
+        # import pdb;pdb.set_trace()
+        Program.reset_task(self.denoise_pinn, self.config_pinn['generation_type'])
         
     def callLearn(self):
         result = learn(self.sess,
@@ -142,7 +145,7 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
                 last=True
                 
             self.pinn_train(best_p,count = i+1,coef = self.config_pinn['coef_pde'],
-                            same_threshold = same_threshold,
+                            local_sample = self.config_pinn['local_sample'],
                             last=last)
             
             if last:
@@ -301,7 +304,7 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
         task_name = Program.task.name
         save_path = os.path.join(
             self.config_experiment["logdir"],
-            '_'.join([task_name, timestamp]))
+            '_'.join([self.job_name, timestamp]))
         self.config_experiment["task_name"] = task_name
         self.config_experiment["save_path"] = save_path
         os.makedirs(save_path, exist_ok=True)

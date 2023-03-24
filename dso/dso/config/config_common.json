@@ -9,16 +9,40 @@
       "seed" : 0
    },
    //pinn
-
-   "pinn":{
-      "use_pinn": false
+   "pinn":  {
+      //task param
+      "use_pinn":true,
+      "use_variance":false,
+      // "iter_num":2,
+      //network param
+      // "number_layer":8,
+      // "input_dim":2,
+      // "n_hidden":32,
+      // "out_dim":1,
+      "activation":"sin",
+      "local_sample":false,
+      // "coef_pde":1,
+      "pinn_epoch": 1000,
+      "duration":500,
+      "lr":0.001,
+      // data
+      // "data_ratio":0.13,
+      // "noise":0.1,
+      // "coll_data":20000,
+      "generation_type": "AD"
    },
+   
    // Task-specific hyperparameters. See task-specific configs (e.g.
    // config_regression.json) for more info.
    "task" : {
 
       // Choice of ["PDE"].
-      "task_type" : null
+      "task_type" : null,
+      // "cut_ratio":0.1,
+      "use_torch":false,
+      // "data_noise_level":0.1,
+      // "sym_true_input": "add_t,mul_t,u,diff_t,u,x1,add_t,diff2_t,u,x1,diff4_t,u,x1",
+      // "data_amount":1,
    },
 
    // Hyperparameters related to the main training loop.
@@ -80,7 +104,10 @@
       "save_cache" : false,
       "save_cache_r_min" : 0.9,
       "save_freq" : 1,
-      "save_token_count" : false
+      "save_token_count" : false,
+
+      // Parameters new
+      "remove_same":false,
    },
    // The State Manager defines the inputs to the Controller
    "state_manager": {

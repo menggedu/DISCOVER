@@ -64,7 +64,8 @@
       // Set of thresholds (shared by all input variables) for building
       // decision trees. Note that no StateChecker will be added to Library
       // if decision_tree_threshold_set is an empty list or null.
-      "decision_tree_threshold_set" : []
+      "decision_tree_threshold_set" : [],
+      "max_depth":6
    },
    
    // Hyperparameters related to genetic programming hybrid methods.
@@ -147,7 +148,7 @@
          "scale" : 5,
          "on" : true
       },
-      "diff_left":{
+      "diff_left_strict":{
          "on":true
       },
       "diff_right":{
@@ -156,6 +157,7 @@
       "diff_descedent":{
          "on":true
       },
+
       "diff_descedent2":{
          "on":true
       }

@@ -2,7 +2,7 @@ import numpy as np
 import math
 import torch
 
-from dso.task.pde.utils_noise import tensor2np
+from dso.task.pde.utils_noise import tensor2np,cut_bound
 from dso.execute import python_execute, python_execute_torch
 
 class InvalidLog():
@@ -52,9 +52,12 @@ def unsafe_execute_torch(traversal, u, x):
     
     with np.errstate(all='log'):
         y = python_execute_torch(traversal, u,x)
-        # if y == False:
-        #     return 0, True,'no_grad','no_grad'
-        invalid, error_node, error_type = invalid_log.update()
+        if y is None:
+            invalid_log.write("bad_diff bad_diff bad_diff")
+            return 0, True,'bad_diff','bad_diff'
+        
+        error_node,error_type=None,None
+        invalid=False
         return y, invalid, error_node, error_type
 
 
@@ -130,7 +133,7 @@ class Regulations(object):
                 error_list.append('spatial_error')
 
         for i, traversal in enumerate(terms_token):
-            if ('diff' in repr(traversal) or 'Diff' in repr(traversal)) and 'u,' not in repr(traversal):
+            if ('diff' in repr(traversal) or 'Diff' in repr(traversal)) and ', u' not in repr(traversal):
                 error_list.append('no_u')  
                 omit_list.append(i)
 
@@ -143,6 +146,8 @@ class STRidge(object):
     execute_function = None
     cache = {}
     def __init__(self, traversal, default_terms =[], noise_level=0,
+                 max_depth=4,
+                 cut_ratio = 0.02,
                  spatial_error = False):
         self.traversal = traversal
         self.traversal_copy = traversal.copy()
@@ -153,10 +158,11 @@ class STRidge(object):
         self.w_sym = []
         self.default_terms = [build_tree_new(dt) for dt in default_terms]
         self.split_forest()
-        self.regulation = Regulations()
+        self.regulation = Regulations(max_depth=max_depth)
         self.omit_terms = []
         self.noise_level = noise_level
         self.spatial_error = spatial_error
+        self.cut_ratio = cut_ratio
         
     def set_execute_function(self):
         pass
@@ -283,7 +289,7 @@ class STRidge(object):
 
     def calculate(self,u,x,ut, test=False, execute_function = unsafe_execute):
         results = []
-        
+        # import pdb;pdb.set_trace()
         omit_list, err_list = self.regulation.apply_regulations(x,self.traversal_copy, self.terms_token, self.depth)
         if len(err_list)>0:
             if len(err_list) == 1 and 'spatial_error' in err_list and self.spatial_error:
@@ -298,29 +304,19 @@ class STRidge(object):
             
             result, invalid, error_node, error_type = execute_function(traversal, u, x)
             # result = result[2:-2,1:] #RRE
+            
             if invalid:
                 return 0,[0],invalid,error_node,error_type,None
             
             if torch.is_tensor(result):
-                    result = tensor2np(result)
+                result = tensor2np(result)
             else:
-                # pass
-                if self.noise_level>0:
-                    r_shape = result.shape
-                    low_bound = [ math.floor(0.02*dim) for dim in r_shape ]
-                    up_bound = [ math.ceil(0.98*dim) for dim in r_shape ]
-                    if len(r_shape)==2:
-                        # result = result[low_bound[0]:up_bound[0],low_bound[1]:up_bound[1]]
-                        result = result[5:-5,5:-5]
-                    else:
-                        
-                        if not test:
-                            result = result[low_bound[0]:up_bound[0],low_bound[1]:up_bound[1], low_bound[2]:up_bound[2]]
-                        else:
-                            result = result[:,low_bound[1]:up_bound[1], low_bound[2]:up_bound[2]]
                 
+                if self.noise_level>0:
+                    result = cut_bound(result, percent=self.cut_ratio,test = test)
             results.append(result.reshape(-1))
         # import pdb;pdb.set_trace()
+        
         # empty results
         if len(results) ==0:
             invalid =True
@@ -418,4 +414,5 @@ class STRidge(object):
             
         residual = ut-RHS
         return residual
+           
            

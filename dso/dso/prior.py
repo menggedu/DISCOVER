@@ -30,6 +30,7 @@ def make_prior(library, config_prior):
         "uniform_arity" : UniformArityPrior,
         # "language_model" : LanguageModelPrior,
         "diff_left": DiffConstraint_left,
+        "diff_left_strict":DiffConstraint_left_strict,
         'diff_right': DiffConstraint_right,
         'diff_descedent': DiffConstraint_des,
         'diff_descedent2': DiffConstraint_des2,
@@ -599,7 +600,32 @@ class InverseUnaryConstraint(Constraint):
         message = [prior.describe() for prior in self.priors]
         return "\n{}: ".format(self.__class__.__name__).join(message)
 
+class DiffConstraint_left_strict(RelationalConstraint):
+    """Class that constrains terminal tokens are the only tokens."""
 
+    def __init__(self, library):
+        """ u and diff could be the right childs"""
+        # targets = np.array([], dtype=np.int32)
+        diff_names = [name for name in library.names if "diff" in name or "Diff" in name]
+        u_names = [t.name for t in library.tokens if t.state_var is not None]
+        no_target_names = diff_names+u_names
+        # import pdb;pdb.set_trace()
+        targets = [ i for i, t in enumerate(library.tokens) if t.name not in no_target_names]
+        targets = np.array(targets, dtype=np.int32)
+
+        effectors = []
+        for diff_name in library.names:
+            if 'diff' in diff_name or 'Diff' in diff_name:
+                effectors.append(diff_name)
+        
+        super(DiffConstraint_left_strict, self).__init__(library=library,
+                                              targets=targets,
+                                              effectors=effectors,
+                                              relationship="lchild")
+
+
+
+        
 class DiffConstraint_right(RelationalConstraint):
     """Class that constrains terminal tokens are the only tokens."""
 
@@ -643,10 +669,6 @@ class DiffConstraint_des(RelationalConstraint):
         for name in library.names:
             if name in candidates:
                 not_included_names.append(name)
-        # if "sub" in library.names:
-        #     not_included_names.append('sub')
-        # if "sub" in library.names:
-        #     not_included_names.append('sub')
         if library.const_token is not None:
             not_included_names.append('const')
         targets  = [library.names.index(name) for name in not_included_names]
@@ -666,10 +688,7 @@ class DiffConstraint_des2(RelationalConstraint):
         for name in library.names:
             if name in candidates:
                 not_included_names.append(name)
-        # if "sub" in library.names:
-        #     not_included_names.append('sub')
-        # if "sub" in library.names:
-        #     not_included_names.append('sub')
+
         if library.const_token is not None:
             not_included_names.append('const')
         targets  = [library.names.index(name) for name in not_included_names]
@@ -681,6 +700,7 @@ class DiffConstraint_des2(RelationalConstraint):
                                              targets=targets,
                                              effectors=effectors,
                                              relationship="descendant")
+        
 class LaplaceConstraint(RelationalConstraint):
     """Class that constrains input Tokens from being the descendants of laplace
     Tokens."""

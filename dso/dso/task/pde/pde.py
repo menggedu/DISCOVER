@@ -18,17 +18,33 @@ class PDETask(HierarchicalTask):
 
     task_type = "pde"
 
+    # def __init__(self, function_set, dataset, metric="residual",
+    #              metric_params=(0.01,), extra_metric_test=None,
+    #              extra_metric_test_params=(), reward_noise=0.0,
+    #              reward_noise_type="r", threshold=1e-12,
+    #              data_noise_level=0,
+    #              data_amount = 1,
+    #              max_depth=4,
+    #              use_meta_data = False,
+    #              use_torch = False,
+    #              normalize_variance=False, protected=False,
+    #              spatial_error = True, 
+    #              decision_tree_threshold_set=None):
     def __init__(self, function_set, dataset, metric="residual",
-                 metric_params=(0.01,), extra_metric_test=None,
-                 extra_metric_test_params=(), reward_noise=0.0,
-                 reward_noise_type="r", threshold=1e-12,
-                 data_noise_level=0,
-                 data_amount = 1,
-                 use_meta_data = False,
-                 use_torch = False,
-                 normalize_variance=False, protected=False,
-                 spatial_error = True, 
-                 decision_tree_threshold_set=None):
+                metric_params=(0.01,), extra_metric_test=None,
+                extra_metric_test_params=(), reward_noise=0.0,
+                reward_noise_type="r", threshold=1e-12,
+                data_noise_level=0,
+                data_amount = 1,
+                use_meta_data = False,
+                use_torch = False,
+                sym_true_input =None,
+                max_depth=4,
+                normalize_variance=False, protected=False,
+                spatial_error = True, 
+                decision_tree_threshold_set=None,
+                cut_ratio = 0.03,
+                n_input_var = None):
         """
         Parameters
         ----------
@@ -82,6 +98,7 @@ class PDETask(HierarchicalTask):
         self.name = dataset
         self.noise_level = data_noise_level
         self.spatial_error = spatial_error
+        self.cut_ratio = cut_ratio
         
         if data_noise_level>0 and use_torch:
             load_class = load_noise_data
@@ -96,7 +113,7 @@ class PDETask(HierarchicalTask):
         self.ut=ut
         self.sym_true = sym_true
         self.ut = self.ut.reshape(-1,1)
-        
+        self.max_depth = max_depth
         if torch.is_tensor(self.ut):
             self.ut = tensor2np(self.ut)
         # Save time by only computing data variances once

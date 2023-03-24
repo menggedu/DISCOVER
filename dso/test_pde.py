@@ -7,13 +7,14 @@ import os
 import sys
 import pickle
 
+import warnings
 
 
 
 
 if __name__  == "__main__":
     # Create and train the model
-  
+    warnings.filterwarnings('ignore', 'Intel MKL ERROR')
     pde = sys.argv[1]
     folder  = sys.argv[2]
     # sample_num = sys.argv[3]
