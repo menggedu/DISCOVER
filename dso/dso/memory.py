@@ -10,7 +10,7 @@ Batch = namedtuple(
     "Batch", ["actions", "obs", "priors", "lengths", "rewards", "on_policy"])
 
 
-def make_queue(controller=None, priority=False, capacity=np.inf, seed=0):
+def make_queue(controller=None, priority=False, capacity=np.inf, seed=0,remove_same = False):
     """Factory function for various Queues.
 
     Parameters
@@ -41,8 +41,8 @@ def make_queue(controller=None, priority=False, capacity=np.inf, seed=0):
         Base = UniqueQueue
 
     class ProgramQueue(ProgramQueueMixin, Base):
-        def __init__(self, controller, capacity, seed):
-            ProgramQueueMixin.__init__(self, controller)
+        def __init__(self, controller, capacity, seed, remove_same):
+            ProgramQueueMixin.__init__(self, controller,remove_same)
             Base.__init__(self, capacity, seed)
 
     queue = ProgramQueue(controller, capacity, seed)
@@ -124,6 +124,7 @@ class Queue(object):
         self.rng = np.random.RandomState(seed)
         self.heap = []
         self.unique_items = set()
+        self.rewards = []
 
     def push(self, score, item, extra_data):
         raise NotImplementedError
@@ -220,16 +221,70 @@ class UniquePriorityQueue(Queue):
             extra_data: An extra (possible not hashable) data to store with the item.
         """
         if item in self.unique_items:
+            #item is string
             return
         if len(self.heap) >= self.capacity:
             _, popped_item, _ = heapq.heappushpop(
                 self.heap, ItemContainer(score, item, extra_data))
             self.unique_items.add(item)
             self.unique_items.remove(popped_item)
+            
         else:
             heapq.heappush(self.heap, ItemContainer(score, item, extra_data))
             self.unique_items.add(item)
+            
+    def push_rm_same(self, score, item, extra_data=None):
+        """Push an item onto the queue.
 
+        If the queue is at capacity, the item with the smallest score will be
+        dropped. Note that it is assumed each item has exactly one score. The same
+        item with a different score will still be dropped.
+
+        Args:
+            score: Number used to prioritize items in the queue. Largest scores are
+                    kept in the queue.
+            item: A hashable item to be stored. Duplicates of this item will not be
+                    added to the queue.
+            extra_data: An extra (possible not hashable) data to store with the item.
+        """
+        def same_rewards_long(sample):
+            """ same reward with longer string is not included"""
+            r = sample.rewards
+            
+            heap_rewards = np.array(self.get_rewards)
+            same_flag = (np.abs(heap_rewards)-r)<1e-5
+            
+            if same_flag.any():
+                id_same = same_flag.nonzero()[0][0]
+                lengths = self.get_lengths
+                if lengths[id_same]<sample.lengths:
+                    return True,None
+                else:
+                    return False,id_same
+            else:
+                return False,None
+        same_long, id_ = same_rewards_long(extra_data)
+        if item in self.unique_items or same_long:
+            #item is string
+            # item repeat is True or same rewards with longer sequence
+            return
+        if len(self.heap) >= self.capacity:
+            if id_ is not None:
+                #replace 
+                new_ = ItemContainer(score, item, extra_data)
+                self.heap[id_],new_ = new_, self.heap[id_]
+                popped_item = new_.item
+            else:
+                _, popped_item, _ = heapq.heappushpop(
+                    self.heap, ItemContainer(score, item, extra_data))
+                
+            self.unique_items.add(item)
+            self.unique_items.remove(popped_item)
+            
+        else:
+            heapq.heappush(self.heap, ItemContainer(score, item, extra_data))
+            self.unique_items.add(item)
+        
     def pop(self):
         """Pop the item with the lowest score.
 
@@ -281,8 +336,9 @@ class ProgramQueueMixin():
     """A mixin for Queues with additional utilities specific to Batch and
     Program."""
 
-    def __init__(self, controller=None):
+    def __init__(self, controller=None,remove_same =False):
         self.controller = controller
+        self.remove_same = remove_same
 
     def push_sample(self, sample, program):
         """
@@ -299,7 +355,10 @@ class ProgramQueueMixin():
 
         id_ = program.str
         score = sample.rewards
-        self.push(score, id_, sample)
+        if self.remove_same:
+            self.push_rm_same(score,id_,sample)
+        else:
+            self.push(score, id_, sample)
 
     def push_batch(self, batch, programs):
         """Push a Batch corresponding to Programs to the queue."""
@@ -358,3 +417,9 @@ class ProgramQueueMixin():
 
         r = [container.extra_data.rewards for container in self.heap]
         return r
+    
+    def get_lengths(self):
+        """Returns the rewards"""
+
+        l = [container.extra_data.lengths for container in self.heap]
+        return l

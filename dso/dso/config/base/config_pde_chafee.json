@@ -3,7 +3,7 @@
    "experiment" : {
 
          // Root directory to save results.
-         "logdir" : "./log/base_stan_0",
+         "logdir" : "./log/base",
    
          // Random number seed. Don't forget to change this for multiple runs!
          "seed" : 0
@@ -22,12 +22,12 @@
       // supported funcbatch_tions. Note "const" will add placeholder constants that
       // will be optimized within the training loop. This will considerably
       // increase runtime.
-      "function_set": ["add", "sub","mul", "div", "diff","diff2", "n2","n3"],
+      "function_set": ["add", "mul", "div", "diff","diff2", "n2","n3"],
       //                 2     3      4      5       6      7      8
       // Metric to be used for the reward function. See regression.py for
       // supported metrics.
       "metric" : "pde_reward",
-      "metric_params" : [1.0],
+      "metric_params" : [0.01],
 
       // Optional alternate metric to be used at evaluation time.
       "extra_metric_test" : null,
@@ -71,7 +71,7 @@
    // Only the key training hyperparameters are listed here. See
    // config_common.json for the full list.
    "training" : {
-      "n_samples" : 100000,
+      "n_samples" : 50000,
       "batch_size" : 500,
       "epsilon" : 0.02,
       // Recommended to set this to as many cores as you can use! Especially if
@@ -142,7 +142,7 @@
          "on":true
       },
       "diff_descedent":{
-         "on":false
+         "on":true
       }
    }
 }

@@ -34,14 +34,14 @@ class Token():
         Call the Token's function according to input.
     """
 
-    def __init__(self, function, name, arity, complexity, input_var=None):
+    def __init__(self, function, name, arity, complexity, input_var=None,state_var=None):
         self.function = function
         self.name = name
         self.arity = arity
         self.complexity = complexity
         self.input_var = input_var
-
-        if input_var is not None:
+        self.state_var = state_var
+        if input_var is not None or state_var is not None :
             assert function is None, "Input variables should not have functions."
             assert arity == 0, "Input variables should have arity zero."
 
@@ -129,14 +129,21 @@ class Library():
         self.L = len(tokens)
         self.names = [t.name for t in tokens]
         
+        self.np_names = [t.name for t in tokens if t.name not in ['const'] and ('u' not in t.name or t.name=='mul') and t.input_var is None]
         #sub child of operator
         self.arities = np.array([t.arity for t in tokens], dtype=np.int32)
 
         self.input_tokens = np.array(
             [i for i, t in enumerate(self.tokens) if t.input_var is not None],
             dtype=np.int32)
+        self.state_tokens = np.array(
+            [i for i, t in enumerate(self.tokens) if t.state_var is not None],
+            dtype=np.int32)
 
-
+        # self.torch_tokens = [t for i, t in enumerate(self.tokens) if '_t' in t.name]
+  
+        # self.np_tokens = [t for i, t in enumerate(self.tokens) if t.name in self.torch_tokens]
+ 
         def get_tokens_of_arity(arity):
             
             _tokens = [i for i in range(self.L) if self.arities[i] == arity ]
@@ -156,7 +163,6 @@ class Library():
         except ValueError:
             self.const_token = None
 
-        self.u_token = self.names.index("u")
         
         self.parent_adjust = np.full_like(self.arities, -1)
         count = 0
@@ -168,7 +174,7 @@ class Library():
         trig_names = ["sin", "cos", "tan", "csc", "sec", "cot"]
         trig_names += ["arc" + name for name in trig_names]
         # diff 之间不能嵌套
-        trig_names.extend([name for name in self.names if 'diff' in name])
+        trig_names.extend([name for name in self.names if 'diff' in name or "Diff" in name])
         
         self.float_tokens = np.array(
             [i for i, t in enumerate(self.tokens) if t.arity == 0 and t.input_var is None],
@@ -236,6 +242,8 @@ class Library():
                            dtype=np.int32)
         return actions
 
-
+    def add_torch_tokens(self, tokens):
+        self.torch_tokens = tokens
+        
 class TokenNotFoundError(Exception):
     pass
