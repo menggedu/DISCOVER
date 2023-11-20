@@ -530,7 +530,6 @@ class Program(object):
     @classmethod
     def set_const_optimizer(cls, name, **kwargs):
         """Sets the class' constant optimizer"""
-
         const_optimizer = make_const_optimizer(name, **kwargs)
         Program.const_optimizer = const_optimizer
 
@@ -552,7 +551,6 @@ class Program(object):
         }
 
         assert name in all_functions, "Unrecognzied complexity function name."
-
         Program.complexity_function = lambda p : all_functions[name](p)
 
     @classmethod

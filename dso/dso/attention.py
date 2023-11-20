@@ -40,6 +40,9 @@ from tensorflow.python.platform import tf_logging as logging
 from tensorflow.python.util import nest
 import numpy as np
 import tensorflow as tf
+"""
+monotonic attetnion implementation in the LSTM agent
+"""
 # pylint: disable=protected-access
 _Linear = core_rnn_cell._Linear  
 class AttentionCellWrapper(rnn_cell_impl.RNNCell):

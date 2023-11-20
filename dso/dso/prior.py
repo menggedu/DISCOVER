@@ -527,10 +527,7 @@ class ConstConstraint(RelationalConstraint):
 
 
 class NoInputsConstraint(Constraint):
-    """Class that constrains sequences without input variables.
-
-    NOTE: This *should* be a special case of RepeatConstraint, but is not yet
-    supported."""
+    """Class that constrains sequences without input variables."""
 
     def __init__(self, library):
         Prior.__init__(self, library)

@@ -262,6 +262,7 @@ def learn(sess, controller, pool, gp_controller, gp_aggregator, pinn_model, outp
 
     sym_true = Program.task.sym_true
     p_true = from_str_tokens(sym_true)
+    
     # import pdb;pdb.set_trace()
     p_true_r = p_true.r_ridge
     print('*'*6+" True expression "+ '*'*6)
@@ -648,6 +649,7 @@ def learn(sess, controller, pool, gp_controller, gp_aggregator, pinn_model, outp
         mse_list = []
         cv_list = []
         final_mse=  [fp.evaluate['nmse_test'] for fp in final_p_list]
+        # import pdb;pdb.set_trace()
         p_candidate, _ = drop_duplicates(final_p_list, final_mse)
         
         for i, p_sel in enumerate(p_candidate[:stability_selection]):

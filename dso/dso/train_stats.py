@@ -404,12 +404,14 @@ class StatsLogger():
                                                                        n_invalid / n_samples))
                 print("Error type counts:")
                 for error_type, count in error_types.items():
-                    print("  {}: {} ({:.1%})".format(error_type, count, count / n_invalid))
-                    result["error_"+str(error_type)] = count
+                    if count>100:
+                        print("  {}: {} ({:.1%})".format(error_type, count, count / n_invalid))
+                        result["error_"+str(error_type)] = count
                 print("Error node counts:")
                 for error_node, count in error_nodes.items():
-                    print("  {}: {} ({:.1%})".format(error_node, count, count / n_invalid))
-                    result["error_node_" + str(error_node)] = count
+                    if count>100:
+                        print("  {}: {} ({:.1%})".format(error_node, count, count / n_invalid))
+                        result["error_node_" + str(error_node)] = count
 
             result['n_epochs'] = n_epochs
             result['n_samples'] = n_samples

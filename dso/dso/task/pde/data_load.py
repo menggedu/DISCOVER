@@ -1,5 +1,5 @@
-
-
+"""Load full simulation data of multi-dimenisonal systems. 
+"""
 import numpy as np
 import scipy.io as scio
 import scipy
@@ -20,6 +20,7 @@ from dso.task.pde.utils_noise import *
 from dso.task.pde.parameter_process import parametric_burgers_rhs
 from dso.task.pde.utils_subgrid import *
 from dso.task.pde.utils_noise import cut_bound
+
 
 def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =0.03):
     
@@ -471,7 +472,7 @@ def load_data_MD_NU(dataset, noise_level=0, data_amount = 1, training = False, c
             assert False, "Not existed"
 
         return [W,U,V], X, t_data, ut, sym_true, n_input_var, [None, None],n_state_var
-    elif dataset=="RD_3D_MD_NU":
+    elif dataset=="rd_3d_MD_NU":
         data = np.load('./dso/task/pde/data/RD_3D.npz')
         x, y, z = data['x'], data['y'], data['z']
         uv = data['uv']
@@ -485,7 +486,7 @@ def load_data_MD_NU(dataset, noise_level=0, data_amount = 1, training = False, c
         z_data = z.reshape(1,1,1,-1)
         X = [x_data, y_data, z_data]
         sym_true = 'add,mul,u1,n2,u2,add,Diff2_3,u1,x1,add,Diff2_3,u1,x2,Diff2_3,u1,x3'
-        #         (x0)' = 0.013 1 + -0.996 x0x1x1 + 0.021 x0_33 + 0.020 x0_22 + 0.022 x0_11
+        # (x0)' = 0.013 1 + -0.996 x0x1x1 + 0.021 x0_33 + 0.020 x0_22 + 0.022 x0_11
         # (x1)' = -0.054 x1 + 1.033 x0x1x1 + 0.010 x1_33 + 0.011 x1_22 + 0.011 x1_11
         # import pdb;pdb.set_trace()
         ut = np.zeros(u.shape)
@@ -498,9 +499,6 @@ def load_data_MD_NU(dataset, noise_level=0, data_amount = 1, training = False, c
         if noise_level>0 and training:
             ut = cut_bound(ut,0.05)
             vt = cut_bound(vt,0.05)
-            # ut = ut[math.floor(n*0.1):math.ceil(n*0.9), math.floor(m*0.1):math.ceil(m*0.9)]
-            # ut = ut[math.floor(t_len*0.03):math.ceil(t_len*0.97),math.floor(n*0.03):math.ceil(n*0.97), math.floor(m*0.03):math.ceil(m*0.97), math.floor(p*0.03):math.ceil(p*0.97)]
-            # vt = vt[math.floor(t_len*0.03):math.ceil(t_len*0.97),math.floor(n*0.03):math.ceil(n*0.97), math.floor(m*0.03):math.ceil(m*0.97),math.floor(p*0.03):math.ceil(p*0.97)]
         return [u,v], X, t_data, ut, sym_true, n_input_var, [None, None],n_state_var
     
 def load_param_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =0.03):

@@ -221,9 +221,16 @@ def torch_diff(u, xt, order = 1, dim=None):
     return grad
 
 def Laplacian_t(u, x):
-    diff2_x = torch_diff(u, x[0], order = 2)
-    diff2_y = torch_diff(u, x[1], order = 2)
-    return diff2_x+diff2_y
+
+    diff2 = torch_diff(u, x[0], order = 2)
+    # diff2_y = torch_diff(u, x[1], order = 2)
+    
+    # diff2_z = torch_diff(u, x[2], order = 2)
+    # import pdb;pdb.set_trace()
+    for i in range(len(x)-1):
+        diff2_ = torch_diff(u, x[i+1], order = 2)
+        diff2+=diff2_
+    return diff2
     
 
 def plot_u_diff( u_diff1,u_diff2,u_diff3, x, t):

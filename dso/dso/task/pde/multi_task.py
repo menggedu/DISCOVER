@@ -12,7 +12,9 @@ from dso.functions import subgrid_tokens_valid
 from dso.task.pde.data_load import load_subgrid_test
 
 
-
+'''
+possible multi-task 
+'''
 
 class Multi_Dataset_Task(PDETask):
 
@@ -23,7 +25,10 @@ class Multi_Dataset_Task(PDETask):
         
 
 class PDESubgridTask(PDETask):
-    
+    """
+    Class for subgrid forcing 
+    """
+
     task_type = "pde_subgrid"
     def __init__(self,sample_ratio = 0.85,
                  validation_type='held-out',
@@ -63,7 +68,6 @@ class PDESubgridTask(PDETask):
         self.ut_test = [self.ut_test[:,0,:,:, ],self.ut_test[:,1,:,:, ]]
     
     def reward_function(self,p):
-        
         y_hat, y_rhs, w = p.execute(self.u, self.x, self.ut)
         # import pdb;pdb.set_trace()
         if p.invalid:

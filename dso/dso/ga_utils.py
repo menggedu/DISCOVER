@@ -3,6 +3,7 @@ import copy
 import torch
 import collections
 import random
+import itertools
 
 from dso.subroutines import jit_parents_siblings_at_once
 from dso.program import Program, from_tokens
@@ -10,7 +11,24 @@ from dso.task.pde.utils_noise import tensor2np
 
 def TrainSTRidge(R, Ut, lam=1e-5, d_tol=1, maxit=100, STR_iters = 10, l0_penalty = None, normalize = 2, split = 0, 
                     print_best_tol = False):            
+    """
+    Sparse regression with STRidge
 
+    Args:
+        R (_type_): _description_
+        Ut (_type_): _description_
+        lam (_type_, optional): _description_. Defaults to 1e-5.
+        d_tol (int, optional): _description_. Defaults to 1.
+        maxit (int, optional): _description_. Defaults to 100.
+        STR_iters (int, optional): _description_. Defaults to 10.
+        l0_penalty (_type_, optional): _description_. Defaults to None.
+        normalize (int, optional): _description_. Defaults to 2.
+        split (int, optional): _description_. Defaults to 0.
+        print_best_tol (bool, optional): _description_. Defaults to False.
+
+    Returns:
+        _type_: _description_
+    """
     # Split data into 80% training and 20% test, then search for the best tolderance.
     if split != 0:
         np.random.seed(0) # for consistancy
@@ -135,31 +153,33 @@ def tokens2index(tokens, max_length):
     actions_padded[:len(actions)] = actions
     return actions_padded
 
-def mutate_single(lib, token,state=True,input =True):
+def mutate_single(lib, token,terminal_only =False):
     '''
     mutation on a single node
     '''
-    if token.arity == 0:
-        action = lib.actionize(token)[0]
+    action = lib.actionize(token)[0]
+    if token.arity == 0:    
         if token.state_var is not None:
             candidate = lib.state_tokens
 
         elif token.input_var is not None:
             candidate = lib.input_tokens
-
-        if len(candidate) == 1:
-            import pdb;pdb.set_trace()
-            # only one token, mutation invalid
-            return token
     else:
+        if terminal_only :
+            return token
+        
+        candidate = lib.tokens_of_arity[token.arity]
+        # import pdb;pdb.set_trace()
+        # return token
+    if len(candidate) == 1:
+        # print("only one token, mutation invalid")
         return token
-    
     new_op = np.random.choice(candidate)
     while new_op==action:
         new_op = np.random.choice(candidate)
     return lib[new_op]
 
-def cross_over_p(pde1, pde2):
+def cross_over_p(pde1, pde2, p_cv):
     '''
     pde refers to two programs
     cross over terms
@@ -168,11 +188,47 @@ def cross_over_p(pde1, pde2):
     terms1, terms2 = copy.copy(pde1.terms_values[0]), copy.copy(pde2.terms_values[0])
     w1, w2 = len(terms1), len(terms2)
     ix1, ix2 = np.random.randint(w1), np.random.randint(w2)
-    terms1[ix1], terms2[ix2] = terms2[ix2],terms1[ix1]
+    if np.random.random() <p_cv:
+        terms1[ix1], terms2[ix2] = terms2[ix2],terms1[ix1]
+    else:
+        #add and delete
+        terms1.append(terms2[ix2])
+        if len(terms2)>1:
+            del terms2[ix2]
+
+
     return terms1, terms2
 
+def drop_duplicates( tokens, values):
+    '''
+    
+    '''
+    # import pdb;pdb.set_trace()
+    unique_tokens = []
+    unique_values = []
+    token_len = [len(t) if isinstance(t, list) else t.len_traversal for t in tokens]
+    # import pdb;pdb.set_trace()
 
-def drop_duplicates(tokens, values):
+    for i, (arr_current, str_current) in enumerate(zip(values, token_len)):
+        duplicate_found = False
+        for arr_compare, str_compare in zip(values[i+1:], token_len[i+1:]):
+            # if the sum of differences is less than 1e-5, consider them the same
+            if np.abs(np.sum(arr_compare - arr_current)) < 1e-5:
+                duplicate_found = True
+                # if the current string is shorter, replace the compared one
+                if str_current < str_compare:
+                    idx = token_len.index(str_compare)
+                    token_len[idx] = str_current
+                    tokens[idx]=tokens[i]
+                    values[idx]=values[i]
+
+        if not duplicate_found:
+            unique_values.append(arr_current)
+            unique_tokens.append(tokens[i])
+
+    return unique_tokens, unique_values
+
+def drop_duplicates_v2(tokens, values):
     """
     drop terms/programs/tokens with same values/rewards
 
@@ -182,7 +238,6 @@ def drop_duplicates(tokens, values):
     """
     new_values, new_tokens = [],[]
     while len(values)>0:
-        # import pdb;pdb.set_trace()
         value, token= values[0], tokens[0]
         if np.abs(np.sum(value)) <1e-5: # delete values with diffrence equal to 0
             tokens.pop(0)
@@ -228,9 +283,9 @@ def evaluate_terms(execution_func,traversal, u, x):
     return result.reshape(-1)
 
 
-def spatial_complete(tokens, values,execution_func, u, x,p_del = 0.5, max_term =10 ):
+def spatial_complete(tokens, values, execution_func, u, x, p_del = 1, max_term =10, supplement=False ):
     """
-    2d only 
+    only 
     """
     num = len(Program.library.input_tokens)
     if num == 1:
@@ -238,9 +293,9 @@ def spatial_complete(tokens, values,execution_func, u, x,p_del = 0.5, max_term =
     new_terms, new_values = [],[]
     p = np.random.random()
 
-    if p>p_del:
+    if p>p_del and not supplement:
         # delete
-        # TODO complete operations need to select two pair of tokens into a group.
+        # TODO complete operations need to select two pair of tokens into a group.s
         for i, term in enumerate(tokens):
             if not include_input_tokens(term):
                 new_terms.append(term)
@@ -261,12 +316,13 @@ def spatial_complete(tokens, values,execution_func, u, x,p_del = 0.5, max_term =
         complete_terms = complete(term)
         complete_values = [evaluate_terms(execution_func,complete_term, u, x) for complete_term in complete_terms]
         # import pdb;pdb.set_trace()
-        if not include_term(complete_values, values)[0]:
-            # sample from new_terms
-            sample_id = random.choice([i for i in range(len(complete_terms))])
-            new_terms.append(complete_terms[sample_id])
-            new_values.append(complete_values[sample_id])
-        if len(new_terms)>5:
+        # if not include_term(complete_values, values)[0]:
+        #     # sample from new_terms
+        #     sample_id = random.choice([i for i in range(len(complete_terms))])
+        for i in range(len(complete_terms)):
+            new_terms.append(complete_terms[i])
+            new_values.append(complete_values[i])
+        if len(new_terms)>10:
             return tokens+new_terms, values+new_values
     tokens.extend(new_terms)
     values.extend(new_values)
@@ -277,7 +333,9 @@ def spatial_complete(tokens, values,execution_func, u, x,p_del = 0.5, max_term =
 def complete(term):
 
     """
-    multi state variables and 2 dimensional input tokens
+    multi state variables and 2-3 dimensional input tokens
+    generate related dimensions, for example 3d: u_xx,-> (u_yy,u_zz,u_xx)
+    can not deal with u_xy
     """
     # new_terms = []
     input_tokens = Program.library.input_tokens
@@ -285,32 +343,40 @@ def complete(term):
     
     new_terms_list = []
     # obtain the occurence of state tokens
-    count = 0
-    state_group = [] # 
+    count_input = 0
+    count_state = 0
+    state_group = [] 
+    input_group = []
     for token in term:
         if token.state_var is not None:
-            count+=1
+            count_state+=1
             state_group.append(Program.library.actionize(token)[0])
-    # generate state token permutations
-    import itertools
-    state_permutations = list(itertools.permutations(state_tokens,count))
+        if token.input_var is not None:
+            count_input+=1
+            input_group.append(Program.library.actionize(token)[0])
+    # generate state token permutations if more than one state token is utilized
+    state_permutations = list(itertools.permutations(state_tokens,count_state)) if count_state >1 else []
+    input_permutations = list(itertools.permutations(input_tokens,count_input))
     
-    for permutations in [tuple(state_group)] + state_permutations:
-        state_index = 0
-        new_terms = []
-        for token in term:
-            if token.input_var is not None:
-                for i in range(len(input_tokens)):
-                    if Program.library.actionize(token)[0]!=input_tokens[i]:
-                        new_terms.append(Program.library[input_tokens[i]])
-            else:
-                if token.state_var is not None:
-                    new_terms.append(Program.library[permutations[state_index]])
-                    state_index +=1
+    for state_permu in [tuple(state_group)] + state_permutations:
+        for input_permu in input_permutations:
+            if tuple(input_group) == input_permu:
+                continue
+            state_ind = 0
+            input_ind = 0
+            new_terms = []
+            
+            for token in term:
+                if token.input_var is not None:
+                    new_terms.append(Program.library[input_permu[input_ind]])
+                    input_ind +=1
+                elif token.state_var is not None:
+                        new_terms.append(Program.library[state_permu[state_ind]])
+                        state_ind +=1
                 else:
                     new_terms.append(token)
-            
-        new_terms_list.append(new_terms)
+                
+            new_terms_list.append(new_terms)
     return new_terms_list
 
 def check_equal(tokens):
@@ -318,7 +384,7 @@ def check_equal(tokens):
     num = len(Program.library.input_tokens)
     num_dicts = {i:0 for i in range(num)}
     for term in tokens:
-        indices = Program.library.actionize(terms).tolist()
+        indices = Program.library.actionize(term).tolist()
         for i in range(num):
             ind_num = indices.count(Program.library.input_tokens[i])
             num_dicts[Program.library.input_tokens[i]] += ind_num

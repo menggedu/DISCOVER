@@ -92,7 +92,7 @@ class PINN_model:
         # if config_pinn['optimizer_pretrain'] =='LBFGS':
         #     pass
         # else:
-        self.optimizer_pretrain =optim.Adam(self.nn.parameters(), lr=config_pinn['lr'])
+        self.optimizer_pretrain=optim.Adam(self.nn.parameters(), lr=config_pinn['lr'])
         self.optimizer = optim.Adam(self.nn.parameters(), lr=1e-3)
         # self.blgs_optimizer = torch.optim.LBFGS(self.nn.parameters(), lr=0.1, 
         #                       max_iter = 80000, 
@@ -171,9 +171,10 @@ class PINN_model:
             xt_new = xt_l+delta_xt*lhs(2,length)
             xt = np.vstack((xt_new, xt))
         else:
+            # import pdb;pdb.set_trace()
             xt = np.concatenate((*x,t), axis = 1)
             
-        self.x_local = [np2tensor(xt[:,:-1], self.device, requires_grad=True)]
+        self.x_local = [np2tensor(xt[:,i:i+1], self.device, requires_grad=True) for i in range(xt.shape[1]-1)]
         self.t_local = np2tensor(xt[:,-1:], self.device, requires_grad=True)
         
     def closure(self,):
@@ -300,15 +301,20 @@ class PINN_model:
         self.plot_coef()
          
     def train_pinn(self, program_pde, count = 1, coef=0.1, local_sample=True, last=False):
-        expression =  program_pde.str_expression
+        '''
+        program_pde: pdes discovered from discover, list type
+        '''
+        expression =  [program_pde[i].str_expression for i in range(len(program_pde))]
+        pde_num = len(program_pde)
         self.cache['exp'] = expression
         logging.info(f"\n************The {count}th itertion for pinn training.**************** ")
         logging.info(f"start training pinn with traversal {expression}")
-        program_pde.switch_tokens()
+        for i in range(len(program_pde)):
+            program_pde[i].switch_tokens()
         if last:
-            self.pinn_epoch *=3
-            coef = coef
+            # self.pinn_epoch *=3
             best_loss = 1e8
+
         logging.info(f"coef:{coef}")
         if local_sample:
             self.local_sample(self.x, self.t, self.lb, self.ub)
@@ -317,33 +323,37 @@ class PINN_model:
             self.optimizer.zero_grad()
             u_predict = self.net_u(torch.cat([*self.x, self.t], axis= 1))
             loss_mse = mse_loss(u_predict, self.u_train).sum()
-            # loss_res1 = self.pinn_loss_explicitly()
-            loss_res1 = pinn_loss(self,  program_pde, self.x_f, self.t_f, program_pde.w, self.extra_gradient)
-            
+            # loss_res1,loss_res3 = self.pinn_loss_explicitly(self.x_f, self.t_f)
+            for i in range(pde_num):
+                pde_loss = torch.tensor([0]).to(loss_mse)
+                loss_res = pinn_loss(self,  program_pde[i], self.x_f, self.t_f, program_pde[i].w, self.extra_gradient)
+                if torch.isnan(loss_res):
+                    logging.info("nan")
+                    loss_res=torch.tensor([0]).to(loss_mse)
+                self.writer.add_scalar(f"pinn/pinn_loss_{i}",loss_res.item(),epoch)
+                pde_loss = pde_loss+loss_res
+
             #local samling based on observations    
-            if local_sample:
-                loss_res2= pinn_loss(self, program_pde, self.x_local, self.t_local, program_pde.w, extra_gradient=self.extra_gradient)
-            else:
-                loss_res2=torch.tensor([0]).to(loss_mse)
+                if local_sample:
+                    # loss_res2 = self.pinn_loss_explicitly(self.x_local, self.t_local)
+                    loss_res2= pinn_loss(self, program_pde[i], self.x_local, self.t_local, program_pde[i].w, extra_gradient=self.extra_gradient)
+                    self.writer.add_scalar(f"pinn/local_pinn_loss_{i}",loss_res2.item(),epoch)
+                    pde_loss+=loss_res2
                 
-            if torch.isnan(loss_res1) or torch.isnan(loss_res2):
-                logging.info("nan")
-                loss_res1=torch.tensor([0]).to(loss_mse)
-                loss_res2=torch.tensor([0]).to(loss_mse)
                 
-            loss = coef*(loss_res1+loss_res2)+loss_mse
+            loss = coef*(pde_loss)+loss_mse  #delete res3
             loss.backward()
             self.optimizer.step()
             
             if (epoch+1)%10==0:
-                logging.info(f"epoch: {epoch+1}, mse: {loss_mse.item()}, res_loss1:{loss_res1.item()},res_loss2:{loss_res2.item()}, total_loss:{loss.item()}")
+                logging.info(f"epoch: {epoch+1}, mse: {loss_mse.item()}, pde_loss:{pde_loss.item()}, total_loss:{loss.item()}")
             
-            self.writer.add_scalars("pinn/pinn_loss",{
-                "loss_mse": loss_mse.item(),
-                "loss_res1": loss_res1.item(),
-                "loss_res2": loss_res2.item(),
-                "loss":loss.item()
-            }, self.cur_epoch+epoch)
+            # self.writer.add_scalars("pinn/pinn_loss",{
+            #     "loss_mse": loss_mse.item(),
+            #     "loss_res1": loss_res1.item(),
+            #     "loss_res2": loss_res2.item(),
+            #     "loss":loss.item()
+            # }, self.cur_epoch+epoch)
             
             if last:
                 if loss.item()< best_loss:
@@ -363,44 +373,70 @@ class PINN_model:
         out = self.net_u(x)
         return out
     
-    def pinn_loss_explicitly(self):
-        #  -0.947836 * diff_t(u1,x1) + -0.949334 * diff3_t(u1,x1) + -0.484893 * n2_t(u1)
-        # -0.5738601300366815 * diff(mul(div(u,u),n2(u)),x1) + 0.11269937552160604 * u
-        # + -0.25388272324859346 * mul(u,u) + 0.08210855914489139 * diff2(u,x1) 
-        # 0.09732894599437714 * diff2_t(u1,x1) + -0.49593397974967957 * diff_t(n2_t(u1),x1)
-        u = self.net_u(torch.cat([*self.x_f, self.t_f], axis = 1))
-        # import pdb;pdb.set_trace()
-        ut = torch.autograd.grad(outputs=u,inputs = self.t_f,
-                            grad_outputs = torch.ones_like(u),
-                                create_graph=True)[0]
-        # import pdb;pdb.set_trace()
-        grad_can1 = u**2
-        # if torch.any(torch.isnan(grad_can1)):
-        #     import pdb;pdb.set_trace()
+    def pinn_loss_explicitly(self, x_f,t_f ):
+        # -0.024101 * u1 + -0.953476 * mul_t(u1,n2_t(u2)) + 0.019021 * 
+        # diff2_t(u1,x1) + 0.019623 * diff2_t(u1,x2) + 0.015586 * diff2_t(u1,x3) + 0.014302
 
-        # grad1 = torch.autograd.grad(outputs=grad_can1,inputs =self.x_f[0],
-        #                             grad_outputs = torch.ones_like(u),
-        #                             create_graph=True)[0]
-        
-        grad1 = torch.autograd.grad(outputs=u,inputs =self.x_f[0],
-                                    grad_outputs = torch.ones_like(u),
+        # 1.027078 * mul_t(mul_t(u2,u1),u2) + -0.070418 * div_t(n2_t(u2),u2) + 0.009603 * diff2_t(u2,x2)
+        # + 0.009964 * diff2_t(u2,x1) + 0.008110 * diff2_t(u2,x3) + -0.000149
+
+
+
+        u = self.net_u(torch.cat([*x_f, t_f], axis = 1))
+        ut = torch.autograd.grad(outputs=u[:,0:1],inputs = t_f,
+                                    grad_outputs = torch.ones_like(u[:,0:1]),
                                     create_graph=True)[0]
-        grad2 = torch.autograd.grad(outputs=grad1,inputs = self.x_f[0],
-                            grad_outputs = torch.ones_like(u),
-                            create_graph=True)[0]
+        vt = torch.autograd.grad(outputs=u[:,1:2],inputs = t_f,
+                                    grad_outputs = torch.ones_like(u[:,1:2]),
+                                    create_graph=True)[0]
 
-        grad3 = torch.autograd.grad(outputs=grad2,inputs = self.x_f[0],
-                            grad_outputs = torch.ones_like(u),
+        ux= torch.autograd.grad(outputs=u[:,0:1],inputs =x_f[0],
+                                    grad_outputs = torch.ones_like(u[:,0:1]),
+                                    create_graph=True)[0]
+        uxx= torch.autograd.grad(outputs=ux,inputs =x_f[0],
+                            grad_outputs = torch.ones_like(ux),
                             create_graph=True)[0]
-        grad4 = torch.autograd.grad(outputs=grad3,inputs = self.x_f[0],
-                            grad_outputs = torch.ones_like(u),
-                            create_graph=True)[0]  
+        uy= torch.autograd.grad(outputs=u[:,0:1],inputs =x_f[1],
+                                    grad_outputs = torch.ones_like(u[:,0:1]),
+                                    create_graph=True)[0]
+        uyy= torch.autograd.grad(outputs=uy,inputs =x_f[1],
+                            grad_outputs = torch.ones_like(uy),
+                            create_graph=True)[0]
+        uz= torch.autograd.grad(outputs=u[:,0:1],inputs =x_f[2],
+                                    grad_outputs = torch.ones_like(u[:,0:1]),
+                                    create_graph=True)[0]
+        uzz= torch.autograd.grad(outputs=uz,inputs =x_f[2],
+                            grad_outputs = torch.ones_like(uz),
+                            create_graph=True)[0]        
+        vx= torch.autograd.grad(outputs=u[:,1:2],inputs =x_f[0],
+                                    grad_outputs = torch.ones_like(u[:,1:2]),
+                                    create_graph=True)[0]
+        vxx= torch.autograd.grad(outputs=vx,inputs =x_f[0],
+                            grad_outputs = torch.ones_like(vx),
+                            create_graph=True)[0]
+        vy= torch.autograd.grad(outputs=u[:,1:2],inputs =x_f[1],
+                                    grad_outputs = torch.ones_like(u[:,1:2]),
+                                    create_graph=True)[0]
+        vyy= torch.autograd.grad(outputs=vy,inputs =x_f[1],
+                            grad_outputs = torch.ones_like(uy),
+                            create_graph=True)[0]
+        vz= torch.autograd.grad(outputs=u[:,1:2],inputs =x_f[2],
+                                    grad_outputs = torch.ones_like(u[:,1:2]),
+                                    create_graph=True)[0]
+        vzz= torch.autograd.grad(outputs=vz,inputs =x_f[2],
+                            grad_outputs = torch.ones_like(uz),
+                            create_graph=True)[0]      
         # print(grad2_)
-        # print(grad1)
-        # rhs = -0.495933979*grad1+0.097328945994 *grad2
-        rhs = -grad2-grad4-u*grad1
-        residual = rhs-ut
-        return torch.mean(torch.pow(residual,2)) 
+
+        rhsu = -0.018939 * u[:,0:1] -0.983833*u[:,0:1]*u[:,1:2]**2 + 0.019415 * uxx+ 0.019880 *uyy + 0.016247 * uzz + 0.014109
+        rhsv =  1.015508  *u[:,0:1]*u[:,1:2]**2  -0.071700 *u[:,1:2] +0.009610 * vyy + 0.009744* vxx +0.007907  * vzz
+        # rhsu =  -0.014 * u[:,0:1] - u[:,0:1]*u[:,1:2]**2 + 0.02 * uxx+ 0.02*uyy + 0.02 * uzz + 0.014
+        # rhsv =  u[:,0:1]*u[:,1:2]**2  -0.067 *u[:,1:2] + 0.01 * vyy + 0.01* vxx + 0.01* vzz
+        ru = rhsu-ut
+        Lu = torch.mean(torch.pow(ru,2))
+        rv = rhsv-vt
+        Lv = torch.mean(torch.pow(rv,2))
+        return Lu,Lv
     
     def evaluate(self,):
         u_pred =  self.net_u(self.x_star)
@@ -427,6 +463,7 @@ class PINN_model:
         self.nn.load_state_dict(total_state_dict)
         if not keep_optimizer:
             self.optimizer = optim.Adam(self.nn.parameters(), lr=1e-3)
+            
     @property   
     def collocation_point(self):
         return self.x_f, self.t_f
@@ -459,9 +496,10 @@ class PINN_model:
         if path is None:
             path = os.path.split(self.pretrain_path)
 
-        ckpt_path = path+f'/dso_{self.dataset_name}_0_pinn2_best.ckpt'
-        # import pdb;pdb.set_trace()
+        ckpt_path = path+f'/dso_{self.dataset_name}_0_pinn1_best.ckpt'
+        ckpt_path = path+f'/dso_{self.dataset_name}_0_pretrain.ckpt'
         self.load_model(ckpt_path)
+        # import pdb;pdb.set_trace()
         u_pred, _ = self.evaluate()
         u_pred1 = u_pred[:,0].reshape(self.shape[0], -1)
         np.savez(path+'/predicted.npz', u_pred=tensor2np(u_pred1), x_star= tensor2np(self.x_star), u_star = self.u_star)

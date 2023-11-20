@@ -14,8 +14,7 @@ from dso.task.pde.utils_noise import *
 
 class PDETask(HierarchicalTask):
     """
-    Class for the symbolic regression task. Discrete objects are expressions,
-    which are evaluated based on their fitness to a specified dataset.
+    Class for the common PDE disovery task (MODE1). 
     """
 
     task_type = "pde"
@@ -35,7 +34,9 @@ class PDETask(HierarchicalTask):
                 decision_tree_threshold_set=None,
                 cut_ratio = 0.03,
                 n_input_var = None,
-                data_info = None
+                data_info = None,
+                add_const = False,
+                eq_num=1
                 ):
         """
         Parameters
@@ -81,6 +82,9 @@ class PDETask(HierarchicalTask):
 
         decision_tree_threshold_set : list
             A set of constants {tj} for constructing nodes (xi < tj) in decision trees.
+        
+        eq_num: int
+            The number of governing equations to be identified
         """
 
         super(HierarchicalTask).__init__()
@@ -115,6 +119,8 @@ class PDETask(HierarchicalTask):
  
         self.ut=ut
         self.sym_true = sym_true
+        self.add_const=add_const
+        self.eq_num = eq_num
         self.ut = self.ut.reshape(-1,1)
         self.max_depth = max_depth
         if torch.is_tensor(self.ut):
@@ -182,12 +188,10 @@ class PDETask(HierarchicalTask):
     def mse_function(self,p):
         y_hat, y_right, w = p.execute(self.u, self.x, self.ut)
         diffs = y_hat-self.ut
-        loss = (np.mean(np.square(diffs)))
-        
+        loss = (np.mean(np.square(diffs))) 
         return loss
 
     def evaluate(self, p):
-
         # Compute predictions on test data
         y_hat,y_right,  w = p.execute(self.u, self.x, self.ut)
 
@@ -236,14 +240,17 @@ class PDETask(HierarchicalTask):
         return info
     
     def evaluate_diff(self, p):
-         
         y_hat,y_right,  w = p.execute(self.u, self.x, self.ut)
         return self.ut-y_hat
         
     def set_ut(self, ut_diff):
         self.ut=ut_diff
 
-    
+    def reset_ut(self,id ):
+        assert self.ut_cache is not None
+        self.ut = self.ut_cache[id]
+
+
     def terms_values(self, p):
         '''return results list and terms list
             results:  shape = [(-1)]

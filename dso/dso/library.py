@@ -188,6 +188,10 @@ class Library():
             [i for i, t in enumerate(self.tokens) if t.name in trig_names],
             dtype=np.int32) #[5,6]
         
+        self.diff_tokens = np.array(
+            [i for i, t in enumerate(self.tokens) if "diff" in t.name or "Diff" in t.name],
+            dtype=np.int32) 
+        
         inverse_tokens = {
             "inv" : "inv",
             "neg" : "neg",

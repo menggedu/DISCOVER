@@ -5,7 +5,8 @@ except ImportError:
 import array
 import torch.autograd as autograd
 import torch
-
+    """evaluate PDE traversal through predefined operators and operands.
+    """
 def python_execute(traversal, u, x):
     apply_stack = []
     dim_flag = None

@@ -15,8 +15,8 @@ from dso.task.pde.weak_form import WeakEvaluate
 
 class PDEPINNTask(PDETask):
     """
-    Class for the symbolic regression task. Discrete objects are expressions,
-    which are evaluated based on their fitness to a specified dataset.
+    Class for the PINN-based Task in R_DISCOVER (MODE2).
+
     """
 
     task_type = "pde_pinn"
@@ -37,7 +37,8 @@ class PDEPINNTask(PDETask):
                  decision_tree_threshold_set=None,
                  cut_ratio = 0.03,
                  n_input_var = None,
-                 add_const = False
+                 add_const = False,
+                 eq_num=1
                  ):
 
 
@@ -59,11 +60,14 @@ class PDEPINNTask(PDETask):
         self.ut=ut
         self.ut_true=ut_true
         self.add_const = add_const
+        self.eq_num = eq_num
         # if not isinstance(ut, list):
         #     self.ut = [ut]
         #     self.ut_true = [ut_true]
             
         self.sym_true = sym_true if sym_true_input is None else sym_true_input
+        self.sym_true_input = sym_true_input
+
         self.ut =self.ut.reshape(-1,1) 
         self.ut_true = self.ut_true.reshape(-1,1)
         self.noise_level = data_noise_level
@@ -183,6 +187,15 @@ class PDEPINNTask(PDETask):
         return info
 
     def generate_meta_data(self, model, generation_type = 'AD', plot= False):
+        """
+        Generate meta data based on NN. 
+        FD refers to the finite difference. Only generate data on regulard grids
+        AD refers to the automatic differentiation. Use collocation data as trainging data
+        Args:
+            model (_type_): NN
+            generation_type (str, optional): FD or AD. Defaults to 'AD'.
+            plot (bool, optional): Plot intermediate results. Defaults to False.
+        """
         print("generating metadata")
         u, x, cache = model.generate_meta_data()
         cache['iter'] = self.iter
@@ -269,7 +282,7 @@ class PDEPINNTask(PDETask):
         if generation_type=='AD':
             self.AD_generate_1D(x,model)     
         elif generation_type == 'multi_AD':
-            self.AD_generate_2D(model)
+            self.AD_generate_mD(model)
         elif generation_type =='FD':  
             self.FD_generate(u)
         elif generation_type =='FD_generate_2d':
@@ -305,6 +318,7 @@ class PDEPINNTask(PDETask):
             plot_ut(uxx_true.T, uxx_fd.T,uxx_torch, self.x[0], self.t)  
     
     def weak_form_cal(self, x, model):
+
         device = x.device
         xw,tw,x1,t1,x2,t2 = self.wf.reconstruct_input(device, **self.weak_params)
         
@@ -327,7 +341,6 @@ class PDEPINNTask(PDETask):
         
         self.ut = utw.reshape(-1,1)
 
-
     def AD_generate_1D(self, x, model):
         device = x.device
         x = tensor2np(x)
@@ -342,7 +355,7 @@ class PDEPINNTask(PDETask):
         ut = torch_diff(self.u[0], xt, order = 1, dim = 1)
         self.ut = tensor2np(ut)
 
-    def AD_generate_2D(self,model):
+    def AD_generate_mD(self,model):
         """ use collocation data as trainging data"""
         x_f,t_f = model.collocation_point
         device = model.device
@@ -354,9 +367,20 @@ class PDEPINNTask(PDETask):
         self.x = x
         self.t = t
         self.u = [model.net_u(xt)]
-        ut = torch_diff(self.u[0][:,1:2], t, order = 1)
-        self.ut = tensor2np(ut)
+        # if self.u.shape[-1]>1:
+        #     ut = [torch_diff(self.u[0][:,i:i+1], t, order = 1)  for i in range(self.u.shape[-1])]
+        #     self.ut = [tensor2np(ut_) for ut_ in ut] 
+        # else:
+        ut = [torch_diff(self.u[0][:,i:i+1], t, order = 1) for i in range(self.eq_num)]
+        self.ut_cache = [tensor2np(ut[i]) for i in range(len(ut))]
+
+    def reset_ut(self,id ):
+        self.ut = self.ut_cache[id] 
         
+        if isinstance(self.sym_true_input, list):
+            self.sym_true=self.sym_true_input[id]
+
+
     def FD_generate(self, u):
         n,m=self.shape
         self.u = [tensor2np(u).reshape(m,n).T ]
@@ -423,6 +447,15 @@ class PDEPINNTask(PDETask):
         self.u = self.u_new
              
     def stability_test(self,p):
+        """
+        Evaluate the given program by balancing stability and accuracy.
+
+        Args:
+            p (_type_): Program instance
+
+        Returns:
+            _type_: two metrics include mse(accuracy) and cv(coefficients of variation)
+        """
         self.mse, self.cv = self.cal_mse_cv(p)
         mse = np.array(self.mse)
         cv = np.array(self.cv)

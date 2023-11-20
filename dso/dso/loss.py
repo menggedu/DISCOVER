@@ -9,17 +9,18 @@ def mse_loss(prediction, target):
     return loss
 
 def pinn_loss(model,p,x,t,w, extra_gradient=False):
-    """_summary_
+    """
+    embed discoverd equation in the pinn-training manner
 
     Args:
-        model (_type_): _description_
-        p (_type_): _description_
-        x (_type_): _description_
-        t (_type_): _description_
+        model (_type_): NN
+        p (_type_): Program of the discovered equation
+        x (_type_): x
+        t (_type_): t
         w (_type_): coefficients of each fucntion terms
 
     Returns:
-        _type_: _description_
+        _type_: pinn loss 
     """
     u = [model.net_u(torch.cat([*x, t], axis= 1))]
     ut = torch.autograd.grad(outputs=u[0][:,0:1],inputs = t,

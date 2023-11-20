@@ -138,7 +138,6 @@ class Regulations(object):
         num = repr(traversal).count('x1')
         omit_list = []
         error_list= []
-        # import pdb;pdb.set_trace()
         for i in range(1,dim):
             new_num = repr(traversal).count(f'x{i+1}')
             if i == dim-1 and type(x[-1]) == str :
@@ -344,7 +343,6 @@ class STRidge(object):
             # self.results = results
             results = np.array(results).T
             if self.add_const:
-            # import pdb;pdb.set_trace()
                 results = np.concatenate((results, np.ones((results.shape[0], 1))), axis = 1)
             return self.coef_calculate(results,ut)
         else:
@@ -357,6 +355,24 @@ class STRidge(object):
             # multi state
             # pass
 
+    def calculate_RHS_terms(self, u, x, execute_func = unsafe_execute_torch, extra_gradient=False):
+        
+        results = []
+        
+        for i,traversal in enumerate(self.terms_token):
+            try:
+               
+                result,_,_,_ = execute_func(traversal, u,x)
+            except Exception as e:
+                print("bad program")
+                return torch.tensor(float('nan'))
+            if extra_gradient:
+                for j in range(len(x)):
+                    result = torch_diff(result, x[j])
+            results.append(result)
+
+        return results
+        
     def evaluate_terms(self,u,x, test=False, execute_function = unsafe_execute):
         results = []
         
@@ -409,41 +425,12 @@ class STRidge(object):
             #n d
 
         return results_left
-        # coefficients calculation
-        # cache mid results
-        # self.results = results_left
 
-                # omit_terms2.append(i)
-           
-        # if len(omit_terms2)>0:
-        #     w_best_left = [w_best[i] for i in range(len(w_best)) if i not in omit_terms2]
-        #     terms_token = [self.terms_token[i] for i in range(len(self.terms_token)) if i not in omit_terms2]
-        #     terms = [self.terms[i] for i in range(len(self.terms)) if i not in omit_terms2]
-        #     results_left2 = [results_left[i] for i in range(len(results_left)) if i not in omit_terms2]
-        #     self.terms = terms
-        #     self.terms_token = terms_token
-        #     w_best = np.array(w_best_left)
-        #     results = np.array(results_left2).T 
-        #     invalid = True
-
-        #     for n in omit_terms2:
-        #         bias = 0
-        #         for i in omit_terms:
-        #             if n<=i:
-        #                 bias+=1
-        #         self.omit_terms.append(n+bias)
-        
-        # y_hat = results.dot(w_best)
-        # w_best = w_best.reshape(-1).tolist()
-
-        # return y_hat, w_best, invalid,error_node,error_type,results
     def coef_calculate(self,rhs, lhs):
         # from sklearn.linear_model import LinearRegression
         # lr = LinearRegression(fit_intercept=False).fit(rhs,lhs)
-        
         try:
             w_best = np.linalg.lstsq(rhs, lhs)[0]
-            # import pdb;pdb.set_trace()
         except Exception as e:
             print(e)
             invalid = True
@@ -460,13 +447,17 @@ class STRidge(object):
         #     return y_hat_const, w_best_const, False,None,None,rhs_const
         # old
         for i in range(len(w_best)):
-            if self.add_const and i== len(w_best)-1:
-                #small const is accepted
-                continue
-            if np.abs(w_best[i])<1e-5:
+            
+
+            if np.abs(w_best[i])<5e-5:
+                if self.add_const and i== len(w_best)-1:
+                    rhs= rhs[:,:-1]
+                    w_best = np.linalg.lstsq(rhs, lhs)[0]  
+                    continue
                 return 0, [0], True,"small_coe", 'small_coe',None
             if  np.abs(w_best[i])>1e4:
                 return 0, [0], True,"large_coe", 'large_coe',None
+            
         y_hat = rhs.dot(w_best)
         w_best = w_best.reshape(-1).tolist()
         return y_hat, w_best, False,None,None,rhs
@@ -499,15 +490,13 @@ class STRidge(object):
                 w_list.append(w)
                 y_rhs_list.append(y_rhs)
         return y_hat_list, w_list,invalid,error_node, error_type, results
-                
 
-    def calculate_RHS(self, u, x, ut, coefs, execute_func =unsafe_execute_torch,extra_gradient=False ):
+    def calculate_RHS(self, u, x, ut, coefs, execute_func = unsafe_execute_torch,extra_gradient=False ):
         results = self.calculate_RHS_terms(u,x, execute_func,extra_gradient=extra_gradient)
         RHS = 0
         if isinstance(coefs, list):
             for i in range(len(coefs)):
-                RHS += results[i]*coefs[i]
-                
+                RHS += results[i]*coefs[i]        
         else:
             RHS = coefs(results)
             
@@ -519,7 +508,6 @@ class STRidge(object):
         results = []
         
         for i,traversal in enumerate(self.terms_token):
-            # import pdb;pdb.set_trace()
             try:
                
                 result,_,_,_ = execute_func(traversal, u,x)
@@ -528,7 +516,6 @@ class STRidge(object):
                 return torch.tensor(float('nan'))
             if extra_gradient:
                 for j in range(len(x)):
-                    # import pdb;pdb.set_trace()
                     result = torch_diff(result, x[j])
             results.append(result)
 

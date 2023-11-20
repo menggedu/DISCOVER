@@ -1,3 +1,7 @@
+"""
+load noisy and sparse data for the PINN traing 
+
+"""
 import numpy as np
 import torch
 import scipy
@@ -332,7 +336,7 @@ def load_2d2U_data(dataset,
         # X, Y, T = np.meshgrid(x, y, t)  
         # sym_true = 'add,add,Diff2,u1,x1,Diff2,u1,x2,sub,u1,n3,u1'
 
-    elif "rd" in dataset: 
+    elif "rd" == dataset: 
         data = scipy.io.loadmat('./dso/task/pde/data/reaction_diffusion_standard.mat') # grid 256*256*201
             
         t = np.real(data['t'].flatten()[:,None])
@@ -425,7 +429,7 @@ def load_2d2U_data(dataset,
         uv_star_val = np.concatenate([u_star_val,v_star_val], axis = 1)
         return X_star_train,uv_star_train , X_f, X_star_val, uv_star_val, [lb, ub], [X_star, uv_star], [uv_star.shape]
     
-    elif dataset == 'RD_3D_MD_NU':
+    elif dataset == 'rd_3d_MD_NU':
         data = np.load('./dso/task/pde/data/RD_3D.npz')
         x, y, z = data['x'], data['y'], data['z']
         uv = data['uv']
@@ -455,7 +459,7 @@ def load_2d2U_data(dataset,
         X_meas = X_star[ID,:]   
         u_meas = u_star[ID,:]
         v_meas = v_star[ID,:]
-        # Doman bounds
+        # bounds
         lb = X_star.min(0)
         ub = X_star.max(0)    
         mid = (ub-lb)*0.05
@@ -498,8 +502,7 @@ def load_2d2U_data(dataset,
         uv_star_train = np.concatenate([u_star_train,v_star_train], axis = 1)
         uv_star = np.concatenate([u_star,v_star], axis = 1)
         uv_star_val = np.concatenate([u_star_val,v_star_val], axis = 1)
-
-        return X_star_train, uv_star_train, X_f, X_star_val, uv_star_val, [lb, ub], [X_star, uv_star], [uv_star.shape]    
+        return X_star_train, uv_star_train, X_f, X_star_val, uv_star_val, [lb, ub], [X_star, uv_star], [uv_star.shape[0]]    
     elif 'ns' in dataset:
     
         if dataset == "ns_MD_NU":

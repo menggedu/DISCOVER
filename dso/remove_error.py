@@ -1,5 +1,8 @@
+"""
+ remove Intel error in the logging file 
+"""
 import sys
-log_file = './log/debug/result_burgers2_pinn_t.log'
+log_file = sys.argv[1] #'./log/debug/result_burgers2_pinn_t.log'
 
 if __name__ == "__main__":
     file_name = open(f'{log_file}', 'r')

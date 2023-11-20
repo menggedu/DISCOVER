@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import scipy.io as scio
-
 from dso.task.pde.pde import PDETask
 from dso.library import Library
 from dso.functions import create_tokens
@@ -9,8 +8,7 @@ from dso.functions import create_tokens
 
 class PDE_dsr(PDETask):
     """
-    Class for the symbolic regression task. Discrete objects are expressions,
-    which are evaluated based on their fitness to a specified dataset.
+    Class for the symbolic regression task. 
     """
 
     task_type = "pde_dsr"
