@@ -5,10 +5,6 @@ import torch
 from dso.task.pde.utils_noise import tensor2np,cut_bound
 from dso.execute import python_execute, python_execute_torch
 from dso.task.pde.utils_nn import torch_diff
-<<<<<<< HEAD
-
-=======
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
 class InvalidLog():
     """Log class to catch and record numpy warning messages"""
 
@@ -81,10 +77,7 @@ class Node(object):
         
 
     def __repr__(self):
-<<<<<<< HEAD
         # import pdb;pdb.set_trace()
-=======
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
         children_repr = ",".join(repr(child) for child in self.children)
         if len(self.children) == 0:
             return self.val # Avoids unnecessary parantheses, e.g. x1()
@@ -267,11 +260,6 @@ class STRidge(object):
                     print("wrong children number")
                     assert False
             return traversals  
-<<<<<<< HEAD
-
-=======
-        # import  pdb;pdb.set_trace()
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
         term_list = split_sum(root)
         #initial symbols for each terms (+,-)
         expand_list(term_list)
@@ -350,20 +338,11 @@ class STRidge(object):
         return self.coef_calculate(results,ut)
 
     def calculate(self, u,x,ut, test=False, execute_function = unsafe_execute, cached=None):
-<<<<<<< HEAD
         
         #evaluate function terms
         results = self.evaluate_terms(u,x, test=False, execute_function = execute_function)
         if isinstance(results, tuple):
             return results   
-=======
-        #evaluate function terms
-        
-        results = self.evaluate_terms(u,x, test=False, execute_function = execute_function)
-        if isinstance(results, tuple):
-            return results
-        
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
         #coefficient calculation
         if not isinstance(ut, list):
             # self.results = results
@@ -372,7 +351,6 @@ class STRidge(object):
                 results = np.concatenate((results, np.ones((results.shape[0], 1))), axis = 1)
             return self.coef_calculate(results,ut)
         else:
-<<<<<<< HEAD
             
             results_reshape = [res.reshape(u[0].shape) for res in results]
             t_shape,lev_shape, x_shape, y_shape = u[0].shape
@@ -380,16 +358,6 @@ class STRidge(object):
 
             return self.multi_coef_calculate(results_new,ut, cached_terms = cached)
             # multi state
-=======
-            #stridge
-            results_reshape = [res.reshape(u[0].shape) for res in results]
-            t_shape,lev_shape, x_shape, y_shape = u[0].shape
-            results_new = [[res[:,i,:,:].reshape(-1) for res in results_reshape ] for i in range(lev_shape)]
-            # self.results = results_new
-            return self.multi_coef_calculate(results_new,ut, cached_terms = cached)
-            # multi state
-            # pass
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
 
     def calculate_RHS_terms(self, u, x, execute_func = unsafe_execute_torch, extra_gradient=False):
         
@@ -463,6 +431,7 @@ class STRidge(object):
         return results_left
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     def coef_calculate(self,rhs, lhs):
         # from sklearn.linear_model import LinearRegression
         # lr = LinearRegression(fit_intercept=False).fit(rhs,lhs)
@@ -476,6 +445,11 @@ class STRidge(object):
         # from sklearn.linear_model import LinearRegression
         # lr = LinearRegression(fit_intercept=False).fit(rhs,lhs)
 >>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
+=======
+    def coef_calculate(self,rhs, lhs):
+        # from sklearn.linear_model import LinearRegression
+        # lr = LinearRegression(fit_intercept=False).fit(rhs,lhs)
+>>>>>>> 130aadb (R_discover)
         try:
             w_best = np.linalg.lstsq(rhs, lhs)[0]
         except Exception as e:
@@ -495,9 +469,13 @@ class STRidge(object):
         # old
         for i in range(len(w_best)):
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 >>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
+=======
+            
+>>>>>>> 130aadb (R_discover)
 
             if np.abs(w_best[i])<5e-5:
                 if self.add_const and i== len(w_best)-1:
