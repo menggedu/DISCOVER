@@ -197,7 +197,6 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =
 
     elif dataset == 'PAR':
         return load_real_data()
-<<<<<<< HEAD
 
     elif dataset == 'wave':
         data = scipy.io.loadmat('./dso/task/pde/data/matlab_ke_example.mat')
@@ -211,12 +210,6 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =
         sym_true = None #groundtruth of the expression
         input_list = [u[:,i] for i in range(u.shape[1])]
         return input_list,X,t,ut,sym_true, n_input_var,[None],n_state_var
-    
-
-    elif dataset == "chem":
-        return load_chem_data()
-=======
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
     else:
         assert False, "Unknown dataset"
     

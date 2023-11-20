@@ -4,18 +4,11 @@ open-form PDEs with little prior knowledge.
 
 
 
-<<<<<<< HEAD
 This repository provides the code and data for following research papers:
 
 (1) DISCOVER: Deep identification of symbolically concise open-form PDEs via enhanced reinforcement-learning. [PDF](https://arxiv.org/pdf/2210.02181.pdf)
 
 (2) Physics-constrained robust learning of open-formPDEsfrom limited and noisy data. [PDF](https://arxiv.org/ftp/arxiv/papers/2309/2309.07672.pdf)
-=======
-This repository provides the code and data for the following research paper:
-
-DISCOVER: Deep identification of symbolically concise open-form PDEs via enhanced reinforcement-learning. [PDF](https://arxiv.org/pdf/2210.02181.pdf)
-
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
 
 
 
@@ -37,7 +30,6 @@ pip install -r requirements.txt # Possible incompatibility may occurs due to the
 pip install tensorboard 
 ```
 
-<<<<<<< HEAD
 # Mode
 There are two executation modes in DISCOVER for dealing with different applications. 
 ## Mode 1
@@ -87,21 +79,6 @@ sh  ./script_test/MODE2_test.sh
 # Procedures for discovering a new dataset
 
 * **Step 1**:  Put the dataset in the specified directory and write the data loading module. The default directory for benchmark datasets is './dso/dso/task/pde/data_new'. The function of load_data for loading benchmark datasets is located at './dso/dso/task/pde/data_load.py'.
-=======
-# Functions
-DISCOVER can be utilized to uncover open-form governing equations. When high-quality data are available, partial derivatives can be evaluated by numerical differentiation on regular grids. When measurements are noisy, DNN can be optionally utilized to smoothe available data and generate metadata to reduce the impact of noise. The introduction of the whole framework can be found in paper [PDF](https://arxiv.org/pdf/2210.02181.pdf). GPU is not necessary when numerical differentiation is utilized. Note that automatic differentiation is also supported, but more computational resources are required.
-
-
-# Run
-Several benchmark datasets are provided, including the Chafee-Infante equation, the KdV equation and PDE_divide, etc. Running the script below can repeat the results in the paper.
- ```
- sh ./script_test/MODE1_test.sh
- ```
-Data for the phase separation and oceanographic system are provided at [link](https://drive.google.com/drive/folders/1jEK_kYKgzlyVx4U3p2bVyCvq2LWfVZmv?usp=drive_link).
-# Procedures for discovering a new dataset
-
-* **Step 1**:  Put the dataset in the specified directory and write the data-loading module. The default directory for benchmark datasets is './dso/dso/task/pde/data_new'.  The function of load_data for loading benchmark datasets is located at './dso/dso/task/pde/data_load.py' and it is called by class PDETask (in './dso/dso/task/pde/pde.py') to load relevant dataset.
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
 
 ```python
 def load_data(data_path='./dso/task/pde/data_new/Kdv.mat'):
@@ -132,76 +109,9 @@ def load_data(data_path='./dso/task/pde/data_new/Kdv.mat'):
     return [u],X,t,ut,sym_true, n_input_var,test_list,n_state_var
 ```
 
-<<<<<<< HEAD
 * **Step 2**: Hyperparameter setting. All of hyperparameters are passed to the class DeepSymbolicOptimizer_PDE through a JSON file. The default parameter setting is located at './dso/dso/config/config_pde.json'. Users can define their parameters according to the example in the benchmark dataset './dso/dso/config/MODE1'.
 
 * **Step 3**: Execute the PDE discovery task. Output and save results. An example is shown in './dso/test_pde.py'.
-=======
-* **Step 2**: Hyperparameter setting. All of hyperparameters are passed to the class DeepSymbolicOptimizer_PDE through a JSON file. The default parameter setting is located at './dso/dso/config/config_pde.json'. Users can define their own parameters according to the example in the benchmark dataset './dso/dso/config/MODE1'.
-```json
-{
-      // Experiment configuration.
-   "experiment" : {
-
-         // Root directory to save results.
-         "logdir" : "./log/MODE1",
-   
-         // Random number seed. Don't forget to change this for multiple runs!
-         "seed" : 0
-      },
-   
-   "task" : {
-      // Deep Symbolic PDE discovery
-      "task_type" : "pde",
-
-      // The name of the benchmark dataset (all of the avaiable data provided
-      // can be found in ./dso/task/pde/data_new 
-      // New dataset can be added according to the application.
-      "dataset" : "Kdv",
-
-      // To customize a function set, edit this! See functions.py for a list of
-      // supported funcbatch_tions.
-      "function_set": ["add", "mul", "div", "diff","diff2", "diff3","n2","n3"],
- 
-      // supported metrics.
-      "metric" : "pde_reward",
-      "metric_params" : [0.01],
-
-      // Optional alternate metric to be used at evaluation time.
-      "extra_metric_test" : null,
-      "extra_metric_test_params" : [],
-
-      // threshold for early stopping.
-      "threshold" : 5e-4,
-   },
-
-   // Only the key training hyperparameters are listed here. See
-   // config_pde.json for the full list.
-   "training" : {
-      "n_samples" : 50000,
-      "batch_size" : 500,
-      "epsilon" : 0.02,
-      "early_stopping" : false
-   },
-
-   // Only the key RNN controller hyperparameters are listed here. See
-   // config_pde.json for the full list.
-   "controller" : {
-      "learning_rate": 0.0025,
-      "entropy_weight" : 0.03,
-      "entropy_gamma" : 0.7,
-      // Priority queue training hyperparameters.
-      "pqt" : true,
-      "pqt_k" : 10,
-      "pqt_batch_size" : 1,
-      "pqt_weight" : 0.0,
-      "pqt_use_pg" : true,
-      "attention": true
-   },
-
-```
-* **Step 3**: Execute the PDE discovery task. Output and save the results. An example is shown in './dso/test_pde.py'.
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
 ```python
 from dso import DeepSymbolicOptimizer_PDE
 import pickle 
@@ -220,22 +130,13 @@ with open(f'{data_name}.pkl', 'wb') as f:
         
 ```
 
-<<<<<<< HEAD
 # Reference
 
 (1) Petersen et al. 2021 Deep symbolic regression: Recovering mathematical expressions from data via risk-seeking policy gradients. ICLR 2021.  [Paper](https://openreview.net/forum?id=m5Qsh0kBQG)
-=======
-# References
-
-(1) B.K. Petersen, M.L. Larma, T.N. Mundhenk, C.P. Santiago, S.K. Kim, & J.T. Kim, (2021). Deep symbolic regression: Recovering mathematical expressions from data via risk-seeking policy gradients, in: International Conference on Learning Representations. [Paper](https://openreview.net/forum?id=m5Qsh0kBQG)
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
 
 (2) Mundhenk, T., Landajuela, M., Glatt, R., Santiago, C. P., & Petersen, B. K. (2021). Symbolic Regression via Deep Reinforcement Learning Enhanced Genetic Programming Seeding. Advances in Neural Information Processing Systems, 34, 24912-24923.  [Paper](https://proceedings.neurips.cc/paper/2021/file/d073bb8d0c47f317dd39de9c9f004e9d-Paper.pdf)
 
 
-<<<<<<< HEAD
 # Copyright statement
 
 The code of this repository is developed specifically for PDE discovery tasks based on the framework of [DSO](https://github.com/brendenpetersen/deep-symbolic-optimization). This repository is not available for commercial use.
-=======
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a

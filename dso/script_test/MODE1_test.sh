@@ -10,7 +10,6 @@ folder_name=MODE1
 folder=${folder_name}
 mkdir -p ./log/${folder}
 
-<<<<<<< HEAD
 
 # job_name=wave
 # echo ${job_name}
@@ -19,12 +18,6 @@ mkdir -p ./log/${folder}
 job_name=KdV
 echo ${job_name}
 # python test_pde.py  ${job_name} ${folder}
-=======
-# KdV equation discovery
-job_name=KdV
-echo ${job_name}
-python test_pde.py  ${job_name} ${folder}
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
 
 # Chafee-Infante equation discovery
 job_name=Chafee
