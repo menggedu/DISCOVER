@@ -210,6 +210,10 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =
         sym_true = None #groundtruth of the expression
         input_list = [u[:,i] for i in range(u.shape[1])]
         return input_list,X,t,ut,sym_true, n_input_var,[None],n_state_var
+    
+
+    elif dataset == "chem":
+        return load_chem_data()
     else:
         assert False, "Unknown dataset"
     

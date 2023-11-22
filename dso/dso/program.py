@@ -344,22 +344,11 @@ class Program(object):
     
     def execute_terms(self,u,x):
         results =  self.STRidge.evaluate_terms(u,x, execute_function =Program.execute_function )
-<<<<<<< HEAD
         #  todo return  n*d
         
         return results
         
     def execute_multi_STR(self,u,x,ut, test = False):
-=======
-        return results
-    
-        
-    def execute_multi_STR(self,u,x,ut, test = False):
-        
-        # if self.task.sample_ratio>0:
-        #     cached_vals = self.sample_cached_terms()
-        # else:
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
         self.cached_terms, cached_vals = None, None  
         y_hat, w_best, self.invalid,self.error_node,self.error_type, y_right=  self.STRidge.calculate(u,\
             x,ut, test, Program.execute_function, cached = (self.cached_terms, cached_vals))
@@ -372,7 +361,6 @@ class Program(object):
         return cached_vals
     
     def execute_BFGS(self,u, x, ut,):
-<<<<<<< HEAD
         # default coef for every terms is 1
         # self.set_stridge()
         # import pdb;pdb.set_trace()
@@ -385,14 +373,6 @@ class Program(object):
             self.cached_terms=None
             return self.execute_BFGS(u,x,ut)
 
-=======
-        y_hat, w_best, self.invalid,self.error_node,self.error_type, y_right = self.STRidge.evaluate(self.traversal, u,x,ut, Program.execute_function )
-        return y_hat, y_right,w_best
-    
-    def execute(self, u,x,ut,wf = False):
-        if isinstance(Program.const_optimizer, ScipyMinimize):
-            return self.execute_BFGS(u,x,ut)
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
         else:
             if isinstance(ut, list):
                 # multi-dataset for subgrid force or multi state variables
@@ -402,18 +382,10 @@ class Program(object):
                 self.cached_terms=None
                 return self.execute_STR(u, x,ut,wf = wf)
                 
-<<<<<<< HEAD
     def execute_test(self, u, x, ut):
         results = self.STRidge.calculate_RHS_terms(u,x, Program.execute_function)
         return results
     
-=======
-    def execute_test(self, u,x, ut):
-        results = self.STRidge.calculate_RHS_terms(u,x, Program.execute_function )
-        return results
-    
-    
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
     def execute_stability_test(self):     
         return self.task.stability_test(self)
     
@@ -468,41 +440,24 @@ class Program(object):
         """Evaluates and returns the evaluation metrics of the program."""
 
         # Program must be optimized before computing evaluate
-<<<<<<< HEAD
         if "r_ridge" not in self.__dict__:
             print("WARNING: Evaluating Program before computing its reward." \
                   "Program will be optimized first.")
             self.optimize_inner_constant()
-=======
-    #     # Program must be optimized before computing evaluate
-        if "r_ridge" not in self.__dict__:
-            print("WARNING: Evaluating Program before computing its reward." \
-                  "Program will be optimized first.")
-            self.optimize()
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
 
             return self.task.evaluate(self)
-<<<<<<< HEAD
 
     def optimize_hardcoded_constant(self):
         pass
 
     def optimize_inner_constant(self):
-=======
-        
-    def optimize(self):
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
         """
         Optimizes PlaceholderConstant tokens against the reward function. The
         optimized values are stored in the traversal.
         """
-<<<<<<< HEAD
         # original settings: pre sum up the consts 
-=======
-
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
         if len(self.const_pos) == 0:
             return
         
@@ -626,15 +581,8 @@ class Program(object):
         """Evaluates and returns the reward of the program"""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-<<<<<<< HEAD
             # warnings.filterwarnings('ignore', 'Intel MKL ERROR')
             self.optimize_inner_constant()
-=======
-            warnings.filterwarnings('ignore', 'Intel MKL ERROR'
-                                    )
-            # import pdb;pdb.set_trace()
-            self.optimize()
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
             result, self.w = self.task.reward_function(self)
             return result
                 
@@ -644,24 +592,7 @@ class Program(object):
 
         return Program.complexity_function(self)
 
-<<<<<<< HEAD
 
-=======
-    # @cached_property
-    # def evaluate(self):
-    #     """Evaluates and returns the evaluation metrics of the program."""
-
-    #     # Program must be optimized before computing evaluate
-    #     if "r" not in self.__dict__:
-    #         print("WARNING: Evaluating Program before computing its reward." \
-    #               "Program will be optimized first.")
-    #         self.optimize()
-
-    #     with warnings.catch_warnings():
-    #         warnings.simplefilter("ignore")
-
-    #     return self.task.evaluate(self)
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
 
     @cached_property
     def sympy_expr(self):
@@ -734,23 +665,15 @@ class Program(object):
         # if 'w_test' in self.evaluate:
         #     self.w = self.evaluate['w_test']
         for number, traversal in zip(self.w, self.STRidge.terms):
-<<<<<<< HEAD
             # traversal_str =','.join([repr(t) for t in traversal])
             # import pdb;pdb.set_trace()
             out+="%.4f"%number +" * "+ repr(traversal) +' + '
-=======
-            out+="%.6f"%number +" * "+ repr(traversal) +' + '
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
         prefix = ""
         if self.cached_terms is not None:
             for traversal in self.cached_terms:
                 prefix += repr(traversal) +' + '
         if  len(self.w)-len(self.STRidge.terms)==1:
-<<<<<<< HEAD
             out+= "%.4f"%self.w[-1]+' + '
-=======
-            out+= "%.6f"%self.w[-1]+' + '
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
         return prefix + out[:-3]
     
     @property
@@ -760,11 +683,7 @@ class Program(object):
     
     @property
     def coefficents(self):
-<<<<<<< HEAD
         out = "|".join([str(round(w,4)) for w  in self.w])
-=======
-        out = "|".join([str(w) for w  in self.w])
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
         return  out
 
 

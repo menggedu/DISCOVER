@@ -5,6 +5,7 @@ import torch
 from dso.task.pde.utils_noise import tensor2np,cut_bound
 from dso.execute import python_execute, python_execute_torch
 from dso.task.pde.utils_nn import torch_diff
+
 class InvalidLog():
     """Log class to catch and record numpy warning messages"""
 
@@ -260,6 +261,7 @@ class STRidge(object):
                     print("wrong children number")
                     assert False
             return traversals  
+
         term_list = split_sum(root)
         #initial symbols for each terms (+,-)
         expand_list(term_list)
@@ -430,8 +432,6 @@ class STRidge(object):
 
         return results_left
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     def coef_calculate(self,rhs, lhs):
         # from sklearn.linear_model import LinearRegression
         # lr = LinearRegression(fit_intercept=False).fit(rhs,lhs)
@@ -440,16 +440,6 @@ class STRidge(object):
         # logistic = linear_model.LogisticRegression() 
         # rhs = 1/(1 + np.exp(-rhs))
 
-=======
-    def coef_calculate(self, rhs, lhs):
-        # from sklearn.linear_model import LinearRegression
-        # lr = LinearRegression(fit_intercept=False).fit(rhs,lhs)
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
-=======
-    def coef_calculate(self,rhs, lhs):
-        # from sklearn.linear_model import LinearRegression
-        # lr = LinearRegression(fit_intercept=False).fit(rhs,lhs)
->>>>>>> 130aadb (R_discover)
         try:
             w_best = np.linalg.lstsq(rhs, lhs)[0]
         except Exception as e:
@@ -468,14 +458,7 @@ class STRidge(object):
         #     return y_hat_const, w_best_const, False,None,None,rhs_const
         # old
         for i in range(len(w_best)):
-<<<<<<< HEAD
-<<<<<<< HEAD
             
-=======
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
-=======
-            
->>>>>>> 130aadb (R_discover)
 
             if np.abs(w_best[i])<5e-5:
                 if self.add_const and i== len(w_best)-1:
@@ -553,11 +536,7 @@ class STRidge(object):
        
         omit_list, err_list = self.regulation.apply_regulations(x,traversal, self.terms_token, self.depth)
         if len(err_list)>0:
-<<<<<<< HEAD
             if len(err_list) == 1 and 'spatial_error' in err_list: #and self.spatial_error:
-=======
-            if len(err_list) == 1 and 'spatial_error' in err_list and self.spatial_error:
->>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
                 invalid=True
                 return 0,[0],invalid,'spatial_error','spatial_error',None
             else:
