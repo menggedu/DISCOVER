@@ -21,17 +21,16 @@ required = [
     "pathos",
     "seaborn",
     "progress",
-    "tqdm",
     "commentjson",
     "PyYAML",
-    "torch==1.9.1+cu111",
-    "torchaudio==0.9.1",
-    "torchvision==0.10.1+cu111",
-    "tqdm==4.64.1=",
-    "xarray==0.20.2",
-    "tensorboard==1.15.0",
-    "pyDOE==0.3.8",
-    "numba==0.53.1"
+    # "torch==1.9.1+cu111",
+    # "torchaudio==0.9.1",
+    # "torchvision==0.10.1+cu111",
+    # "tqdm==4.64.1",
+    # "xarray==0.20.2",
+    # "tensorboard==1.15.0",
+    # "pyDOE==0.3.8",
+    # "numba==0.53.1"
     
 ]
 

@@ -116,7 +116,10 @@ def build_tree_new(traversal):
 illegal_type = ['no_u', 'spatial_error', 'depth_limit']
 
 class Regulations(object):
-    
+    """
+    set regulations to doudble check invalid expressions
+
+    """
     def __init__(self, max_depth= 3, spatial_error = True):
         self.max_depth = max_depth
         self.spatial_error = spatial_error
@@ -177,6 +180,9 @@ class Regulations(object):
 class STRidge(object):
     execute_function = None
     cache = {}
+    """
+    conduct sparse regression and calculate the coefficients
+    """
     def __init__(self, traversal, default_terms =[], noise_level=0,
                  max_depth=4,
                  cut_ratio = 0.02,
