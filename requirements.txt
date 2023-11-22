@@ -116,14 +116,18 @@ seaborn==0.12.1
 six==1.16.0
 sympy==1.10.1
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 tensorboard==1.15.0
 >>>>>>> 130aadb (R_discover)
+=======
+>>>>>>> db085cc (annote)
 tensorflow==1.14.0
 tensorflow-estimator==1.14.0
 termcolor==2.1.0
 threadpoolctl==3.1.0
 tomli==2.0.1
+<<<<<<< HEAD
 <<<<<<< HEAD
 torch
 torchaudio
@@ -133,6 +137,11 @@ torch==1.9.1+cu111
 torchaudio==0.9.1
 torchvision==0.10.1+cu111
 >>>>>>> 130aadb (R_discover)
+=======
+torch
+torchaudio
+torchvision
+>>>>>>> db085cc (annote)
 tqdm==4.64.1
 typing_extensions==4.4.0
 Werkzeug==2.2.2
@@ -142,7 +151,11 @@ zipp==3.10.0
 zope.event==4.6
 zope.interface==6.0
 <<<<<<< HEAD
+<<<<<<< HEAD
 tensorboard
 >>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
 =======
 >>>>>>> 130aadb (R_discover)
+=======
+tensorboard
+>>>>>>> db085cc (annote)
