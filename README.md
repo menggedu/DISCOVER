@@ -41,16 +41,16 @@ The second mode originates from a robust verison of DISCOVER, named R_DISCOVER, 
 # Run
  For the first mode, several benchmark datasets are provided, including Chafee-Infante equation, KdV equations and PDE_divide, etc. Run the script below can repeat the results in the first paper.
  ```
- sh MODE1_test.sh
+ sh ./script_test/MODE1_test.sh
  ```
 For the second mode, Burgers equation is taken as an example. More examples will be supplemented in the future.
 ```
-sh  MODE2_test.sh
+sh  ./script_test/MODE2_test.sh
 ```
 
 # Procedures for discovering a new dataset
 
-* **Step 1**:  Put the dataset in the specified directory and write the data loading module. The default directory for benchmark datasets is “./dso/dso/task/pde/data”. The function of load_data for loading benchmark datasets is located at “./dso/dso/task/pde/data_load.py”
+* **Step 1**:  Put the dataset in the specified directory and write the data loading module. The default directory for benchmark datasets is './dso/dso/task/pde/data_new'. The function of load_data for loading benchmark datasets is located at './dso/dso/task/pde/data_load.py'.
 
 ```python
 def load_data(data_path='./dso/task/pde/data_new/Kdv.mat'):
@@ -81,9 +81,9 @@ def load_data(data_path='./dso/task/pde/data_new/Kdv.mat'):
     return [u],X,t,ut,sym_true, n_input_var,test_list,n_state_var
 ```
 
-* **Step 2**: Hyperparameter setting. All of hyperparameters are passed to the class DeepSymbolicOptimizer_PDE through a JSON file. The default parameter setting is located at ‘./dso/dso/config/config_pde.json’. Users can define their parameters according to the example in the benchmark dataset ‘./dso/dso/config/MODE1’.
+* **Step 2**: Hyperparameter setting. All of hyperparameters are passed to the class DeepSymbolicOptimizer_PDE through a JSON file. The default parameter setting is located at './dso/dso/config/config_pde.json'. Users can define their parameters according to the example in the benchmark dataset './dso/dso/config/MODE1'.
 
-* **Step 3**: Execute the PDE discovery task. Output and save the results. An example is shown in “./dso/test_pde.py”.
+* **Step 3**: Execute the PDE discovery task. Output and save results. An example is shown in './dso/test_pde.py'.
 ```python
 from dso import DeepSymbolicOptimizer_PDE
 import pickle 
