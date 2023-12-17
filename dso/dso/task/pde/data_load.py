@@ -10,10 +10,6 @@ from scipy.integrate import odeint
 from numpy.fft import fft, ifft, fftfreq
 from time import time
 
-# from dso.task.pde import *
-# from utils_v1 import *
-# from utils_v2 import *
-# from utils_noise import *
 from dso.task.pde.utils_v1 import *
 from dso.task.pde.utils_v2 import *
 from dso.task.pde.utils_noise import *
@@ -23,14 +19,14 @@ from dso.task.pde.utils_noise import cut_bound
 
 
 def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =0.03):
-    
+    """
+    load data and pass them to the corresponding PDE task 
+    """
     X = []
     
-    # data_dir = f'./dso/task/pde/noise_data'
-    # noise_path1 = f'{data_dir}/{dataset}_data_amount{data_amount}_noise{noise_level}.npy'
     noise_path = f'./dso/task/pde/noise_data_new/{dataset}_noise={noise_level}_data_ratio={data_amount}.npz'
     n_state_var = 1
-    if dataset == 'chafee-infante': # 301*200的新数据
+    if dataset == 'chafee-infante': # 301*200
         if noise_level>0:  
 
             data = np.load(noise_path)
@@ -38,24 +34,22 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =
             # u= np.load(noise_path1)
             # import pdb;pdb.set_trace()
         else: 
-            u = np.load("./dso/task/pde/data/chafee_infante_CI.npy")
-        # import pdb;pdb.set_trace()
-        x = np.load("./dso/task/pde/data/chafee_infante_x.npy").reshape(-1,1)
-        t = np.load("./dso/task/pde/data/chafee_infante_t.npy").reshape(-1,1)
+            u = np.load("./dso/task/pde/data_new/chafee_infante_CI.npy")
+        x = np.load("./dso/task/pde/data_new/chafee_infante_x.npy").reshape(-1,1)
+        t = np.load("./dso/task/pde/data_new/chafee_infante_t.npy").reshape(-1,1)
         n_input_var = 1
         sym_true = 'add,add,u1,n3,u1,diff2,u1,x1'
         
         n, m = u.shape 
 
-        # right_side = 'right_side = uxx-u+u**3'
     elif dataset == 'Burgers':
         if noise_level>0:
             # u = np.load(noise_path)
             data = np.load(noise_path)
             u = data['U_pred'].T
-            data = scio.loadmat('./dso/task/pde/data/burgers.mat')
+            data = scio.loadmat('./dso/task/pde/data_new/burgers.mat')
         else: 
-            data = scio.loadmat('./dso/task/pde/data/burgers.mat')
+            data = scio.loadmat('./dso/task/pde/data_new/burgers.mat')
             u=data.get("usol")
         x=np.squeeze(data.get("x")).reshape(-1,1)
         t=np.squeeze(data.get("t").reshape(-1,1))
@@ -67,10 +61,10 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =
         if noise_level>0:
             data = np.load(noise_path)
             u = data['U_pred'].T
-            data = scio.loadmat('./dso/task/pde/data/Kdv.mat')
+            data = scio.loadmat('./dso/task/pde/data_new/Kdv.mat')
         else: 
             
-            data = scio.loadmat('./dso/task/pde/data/Kdv.mat')
+            data = scio.loadmat('./dso/task/pde/data_new/Kdv.mat')
             u=data.get("uu")
         n,m=u.shape
         x=np.squeeze(data.get("x")).reshape(-1,1)
@@ -85,7 +79,7 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =
         n_input_var = 1
         
     elif dataset == 'PDE_divide':
-        u=np.load("./dso/task/pde/data/PDE_divide.npy").T
+        u=np.load("./dso/task/pde/data_new/PDE_divide.npy").T
         nx = 100
         nt = 251
         x=np.linspace(1,2,nx).reshape(-1,1)
@@ -101,7 +95,7 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =
             u = data['U_pred'].T
 
         else:
-            u=np.load("./dso/task/pde/data/PDE_compound.npy").T
+            u=np.load("./dso/task/pde/data_new/PDE_compound.npy").T
         nx = 100
         nt = 251
         x=np.linspace(1,2,nx).reshape(-1,1)
@@ -247,7 +241,7 @@ def load_real_data():
     n_input_var=1
     n_state_var=2
     return [gPAR2[:,:-1], gPAR6[:,:-1], gv[:,:-1]],X,t,ut, sym_true,n_input_var, None,n_state_var
-# [u],X,t,ut,sym_true, n_input_var,None
+
 
 def load_data_2D(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =0.03):
     # from dso.task.pde.utils_v2 import *
@@ -258,7 +252,7 @@ def load_data_2D(dataset,noise_level=0, data_amount = 1, training=False,cut_rati
     if dataset == 'Cahn_Hilliard_2D':
         path='./dso/task/pde/data/ch.npz'
         path='./dso/task/pde/data/ch_ac.npz'
-        path='./dso/task/pde/data/noise_ch.npz'
+        path='./dso/task/pde/data_new/noise_ch.npz'
         if noise_level>0:
             u = np.load(noise_path)
         else:  
@@ -298,7 +292,7 @@ def load_data_2D(dataset,noise_level=0, data_amount = 1, training=False,cut_rati
             u_test, ut_test = None, None  
         
     elif dataset == 'Allen_Cahn_2D':
-        path = './dso/task/pde/data/bcpinn_ac.npz'
+        path = './dso/task/pde/data_new/bcpinn_ac.npz'
         if noise_level>0:  
             u = np.load(noise_path)
         else:

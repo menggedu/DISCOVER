@@ -1,5 +1,5 @@
 # DISCOVER: Deep identification of symbolically concise open-form PDEs via enhanced reinforcement-learning
-The working mechanisms of complex natural systems tend to abide by concise and profound partial differential equations (PDEs). Methods that directly mine equations from data are called PDE discovery. In this respoository, an enhanced deep reinforcement-learning framework is built to uncover symbolically concise
+The working mechanisms of complex natural systems tend to abide by concise and profound partial differential equations (PDEs). Methods that directly mine equations from data are called PDE discovery. In this respository, an enhanced deep reinforcement-learning framework is built to uncover symbolically concise
 open-form PDEs with little prior knowledge. 
 
 
@@ -21,38 +21,86 @@ From the root directory,
 ```
 pip install --upgrade setuptools pip
 export CFLAGS="-I $(python -c "import numpy; print(numpy.get_include())") $CFLAGS" # Needed on Mac to prevent fatal error: 'numpy/arrayobject.h' file not found
-pip install -e ./dso # Install DSO package and core dependencies
+pip install -e ./dso # Install  package and core dependencies
 
 ```
 Extra dependencies,
 ```
-pip install -r requirements.txt # Possible incompatibility may occurs due to the version of tensorboard. Manually installing may be required.
+pip install -r requirements.txt # Possible incompatibility may occurs due to the version of tensorboard. Manually installing it may be required.
+pip install tensorboard 
 ```
-The installation detail is similar to  [DSO](https://github.com/brendenpetersen/deep-symbolic-optimization).
 
 # Mode
-There are two executation modes in DISCOVER. 
+There are two executation modes in DISCOVER for dealing with different applications. 
 ## Mode 1
-The first mode is designed for discoving PDEs from high-quality data. Based on a symbol library of basic operators and
-operands, a structure-aware recurrent neural network agent is designed and seamlessly combined with the
-sparse regression method to generate concise and open-form PDE expressions. All of the generated PDEs
-are evaluated by a meticulously designed reward function by balancing fitness to data and parsimony, and
-updated by the model-based reinforcement learning in an efficient way. Customized constraints and regulations are formulated to guarantee the rationality of PDEs in terms of physics and mathematics. Note that derivatives are evaluated by numerical differentiation on regular grids. DNN can be optionally utilized to smoothe available data and generate meta data to reduce the impact of noise. The introduction of the whole framework can be found in the first paper above. GPU is not necessary since the matrix calculation is based on Numpy.
+The first mode is designed for discoving PDEs from high-quality data. Partial derivatives are evaluated by numerical differentiation on regular grids. DNN can be optionally utilized to smoothe available data and generate meta data to reduce the impact of noise. The introduction of the whole framework can be found in the first paper [PDF](https://arxiv.org/pdf/2210.02181.pdf). GPU is not necessary since the matrix calculation is based on Numpy.
 
 ## Mode2
-The second mode is baseA robust verison of DISCOVER named R_DISCOVER can be utilized to handle sparse and noisy data.The framework operates through two alternating update processes: discovering and embedding. The discovering phase employs symbolic representation and a novel reinforcement learning (RL)-guided hybrid PDE generator to efficiently produce diverse open-form PDEs with tree structures. A neural network-based predictive model fits the system response and serves as the reward evaluator for the generated PDEs. PDEs with higher rewards are utilized to iteratively optimize the generator via the RL strategy and the best-performing PDE is selected by a parameter-free stability metric. The embedding phase integrates the initially identified PDE from the discovering process as a physical constraint into the predictive model for robust training. The traversal of PDE trees automates the construction of the computational graph and the embedding process without human intervention.
-execuated by two alternating updation process: discovering and embedding. A NN is utilized to fit the system response and evaluate the reward by automatic differentiation. It is trained in a PINN manner when effective physical information are discovered. This mode is more suitable for the high-noisy scenarios. GPU resources are required to acclerate the searching process.
+The second mode originates from a robust verison of DISCOVER, named R_DISCOVER, which is designed to handle sparse and noisy data.  A NN is utilized to fit the system response and evaluate the reward by automatic differentiation. It is trained in a PINN manner when effective physical information are discovered. This mode is more suitable for the high-noisy scenarios. The introduction of the whole framework can be found in the second paper [PDF](https://arxiv.org/ftp/arxiv/papers/2309/2309.07672.pdf). GPU resources are required to acclerate the searching process.
 
 # Run
- Take burgers equation as an example. For first mode, run the script below.
+ For the first mode, several benchmark datasets are provided, including Chafee-Infante equation, KdV equations and PDE_divide, etc. Run the script below can repeat the results in the first paper.
  ```
  sh MODE1_test.sh
  ```
-For the second mode,
+For the second mode, Burgers equation is taken as an example. More examples will be supplemented in the future.
 ```
 sh  MODE2_test.sh
 ```
 
+# Procedures for discovering a new dataset
+
+* **Step 1**:  Put the dataset in the specified directory and write the data loading module. The default directory for benchmark datasets is “./dso/dso/task/pde/data”. The function of load_data for loading benchmark datasets is located at “./dso/dso/task/pde/data_load.py”
+
+```python
+def load_data(data_path='./dso/task/pde/data_new/Kdv.mat'):
+    """ load dataset in class PDETask"""    
+    data = scio.loadmat(data_path)
+    u=data.get("uu")
+    n,m=u.shape
+    x=np.squeeze(data.get("x")).reshape(-1,1)
+    t=np.squeeze(data.get("tt").reshape(-1,1))
+    n,m = u.shape #512, 201
+    dt = t[1]-t[0]
+    dx = x[1]-x[0]
+    # true right-hand-side expressions
+    sym_true = 'add,mul,u1,diff,u1,x1,diff3,u1,x1'
+
+    n_input_var = 1 # space dismension
+    n_state_var = 1 # number of the state variable 
+    X=[] # define the space vector list, inlcuding x,y,...
+    test_list =None
+
+    ut = np.zeros((n, m)) # define the left-hand-side of the PDE
+    dt = t[1]-t[0]
+    X.append(x)
+    
+    for idx in range(n):
+        ut[idx, :] = FiniteDiff(u[idx, :], dt)
+    
+    return [u],X,t,ut,sym_true, n_input_var,test_list,n_state_var
+```
+
+* **Step 2**: Hyperparameter setting. All of hyperparameters are passed to the class DeepSymbolicOptimizer_PDE through a JSON file. The default parameter setting is located at ‘./dso/dso/config/config_pde.json’. Users can define their parameters according to the example in the benchmark dataset ‘./dso/dso/config/MODE1’.
+
+* **Step 3**: Execute the PDE discovery task. Output and save the results. An example is shown in “./dso/test_pde.py”.
+```python
+from dso import DeepSymbolicOptimizer_PDE
+import pickle 
+
+data_name = 'KdV'
+config_file_path = "./dso/config/MODE1/config_pde_KdV.json"
+# build model by passing the path of user-defined config file. 
+model = DeepSymbolicOptimizer_PDE(config_file_path)
+    
+# model training
+result = model.train()
+
+#save results
+with open(f'{data_name}.pkl', 'wb') as f:
+    pickle.dump(result, f)
+        
+```
 
 # Reference
 
@@ -63,5 +111,4 @@ sh  MODE2_test.sh
 
 # Copyright statement
 
-The code of this repository is developed for PDE discovery tasks based on the framework of DSO
-, and the copyright of the main code is owned by the original authors of DSO and the organizations to which they belong. This repository is not available for commercial use.
+The code of this repository is developed specifically for PDE discovery tasks based on the framework of [DSO](https://github.com/brendenpetersen/deep-symbolic-optimization). This repository is not available for commercial use.

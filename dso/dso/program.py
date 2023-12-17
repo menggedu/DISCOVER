@@ -649,9 +649,9 @@ class Program(object):
 
         print("\tReward: {}".format(self.r_ridge))
         print("\tMSE:{}".format(self.evaluate['nmse_test']))
-        print("\tCount Off-policy: {}".format(self.off_policy_count))
-        print("\tCount On-policy: {}".format(self.on_policy_count))
-        print("\tOriginally on Policy: {}".format(self.originally_on_policy))
+        # print("\tCount Off-policy: {}".format(self.off_policy_count))
+        # print("\tCount On-policy: {}".format(self.on_policy_count))
+        # print("\tOriginally on Policy: {}".format(self.originally_on_policy))
         print("\tInvalid: {}".format(self.invalid))
         print("\tTraversal: {}".format(self))
 

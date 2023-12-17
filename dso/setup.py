@@ -31,7 +31,6 @@ required = [
     # "tensorboard==1.15.0",
     # "pyDOE==0.3.8",
     # "numba==0.53.1"
-    
 ]
 
 extras = {

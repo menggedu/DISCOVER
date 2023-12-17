@@ -438,7 +438,7 @@ class STRidge(object):
         try:
             w_best = np.linalg.lstsq(rhs, lhs)[0]
         except Exception as e:
-            print(e)
+            # print(e)
             invalid = True
             return 0, [0], invalid, "bad_str", 'bad_str',None
         
