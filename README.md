@@ -5,6 +5,7 @@ open-form PDEs with little prior knowledge.
 
 
 This repository provides the code and data for the following research paper:
+
 DISCOVER: Deep identification of symbolically concise open-form PDEs via enhanced reinforcement-learning. [PDF](https://arxiv.org/pdf/2210.02181.pdf)
 
 
