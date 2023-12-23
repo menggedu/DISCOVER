@@ -1,0 +1,144 @@
+{
+      // Experiment configuration.
+   "experiment" : {
+
+         // Root directory to save results.
+         "logdir" : "./log/MODE1",
+   
+         // Random number seed. Don't forget to change this for multiple runs!
+         "seed" : 0
+      },
+   
+   "task" : {
+      // Deep Symbolic PDE discovery
+      "task_type" : "pde",
+      // The name of the benchmark dataset (all of the avaiable data provided
+      // can be found in ./dso/task/pde/data_new 
+      // New dataset can be added according to the application.
+      "dataset" : "Burgers",
+
+      // To customize a function set, edit this! See functions.py for a list of
+      // supported functions.    
+      "function_set": ["add", "mul", "div", "diff","diff2", "diff3","n2","n3"],
+
+      "metric" : "pde_reward",
+      // Penalty coefficients for the number of function terms.
+      "metric_params" : [0.01],
+
+      // Optional alternate metric to be used at evaluation time.
+      "extra_metric_test" : null,
+      "extra_metric_test_params" : [],
+
+      // NRMSE threshold for early stopping. This is useful for noiseless
+      // benchmark problems when DSO discovers the true solution.
+      "threshold" : 5e-4,
+
+      // With protected=false, floating-point errors (e.g. log of negative
+      // number) will simply returns a minimal reward. With protected=true,
+      // "protected" functions will prevent floating-point errors, but may
+      // introduce discontinuities in the learned functions.      
+      "protected" : false,
+
+      // You can add artificial reward noise directly to the reward function.
+      // Note this does NOT add noise to the dataset.
+      "reward_noise" : 0.0,
+      "reward_noise_type" : "r",
+      "normalize_variance" : false,
+
+      // Set of thresholds (shared by all input variables) for building
+      // decision trees. Note that no StateChecker will be added to Library
+      // if decision_tree_threshold_set is an empty list or null.
+      "decision_tree_threshold_set" : []
+   },
+   
+   // Hyperparameters related to genetic programming hybrid methods.
+   "gp_meld" : {
+      "run_gp_meld" : false,
+      "verbose" : false,
+      // How many GP generations to run between each RNN step. 
+      "generations" : 20,
+      "p_crossover" : 0.5,
+      "p_mutate" : 0.5,
+      "tournament_size" : 5,
+      "train_n" : 50,
+      "mutate_tree_max" : 3
+   },
+
+   // Only the key training hyperparameters are listed here. See
+   // config_common.json for the full list.
+   "training" : {
+      "n_samples" : 50000,
+      "batch_size" : 500,
+      "epsilon" : 0.02,
+      // Recommended to set this to as many cores as you can use! Especially if
+      // using the "const" token.
+      "n_cores_batch" : 1,
+      "early_stopping" : false
+   },
+
+   // Only the key RNN controller hyperparameters are listed here. See
+   // config_common.json for the full list.
+   "controller" : {
+      "learning_rate": 0.0025,
+      "entropy_weight" : 0.03,
+      "entropy_gamma" : 0.7,
+      // Priority queue training hyperparameters.
+      "pqt" : true,
+      "pqt_k" : 10,
+      "pqt_batch_size" : 1,
+      "pqt_weight" : 0.0,
+      "pqt_use_pg" : true,
+      "attention": true
+   },
+
+   // Hyperparameters related to including in situ priors and constraints. Each
+   // prior must explicitly be turned "on" or it will not be used. See
+   // config_common.json for descriptions of each prior.
+   "prior": {
+      // Memory sanity value. Limit strings to size 256
+      // This can be set very high, but it runs slower.
+      // Max value is 1000. 
+      "length" : {
+         "min_" : 3,
+         "max_" : 64,
+         "on" : true
+      },
+      // Memory sanity value. Have at most 10 optimizable constants. 
+      // This can be set very high, but it runs rather slow. 
+      "repeat" : {
+         "tokens" : "add",
+         "min_" : null,
+         "max_" : 5,
+         "on" : true
+      },
+      "inverse" : {
+         "on" : true
+      },
+      "trig" : {
+         "on" : true
+      },
+      "const" : {
+         "on" : false
+      },
+      "no_inputs" : {
+         "on" : false
+      },
+      "uniform_arity" : {
+         "on" : false
+      },
+      "soft_length" : {
+         "loc" : 10,
+         "scale" : 5,
+         "on" : true
+      },
+      "diff_left":{
+         "on":true
+      },
+      "diff_right":{
+         "on":true
+      },
+      "diff_descedent":{
+         "on":true
+      }
+   }
+}
