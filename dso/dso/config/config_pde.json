@@ -1,62 +1,28 @@
 {
-      // Experiment configuration.
-   "experiment" : {
-
-         // Root directory to save results.
-         "logdir" : "./log_pinn/MODE2/",
-   
-         // Random number seed. Don't forget to change this for multiple runs!
-         "seed" : 0
-      },
-   "pinn":  {
-      //task param
-      "use_pinn":true,
-      "use_variance":false,
-      "iter_num":3,
-      //network param
-      "number_layer":8,
-      "input_dim":2,
-      "n_hidden":20,
-      "out_dim":1,
-      "activation":"tanh",
-      "coef_pde":1,
-      "local_sample":true,
-      "pinn_epoch": 1000,
-      "duration":500,
-      // data
-      "data_ratio":0.04,
-      "noise":0.5,
-      "coll_data":50000,
-      "generation_type": "AD"
-   },
-
    "task" : {
-      // Deep Symbolic Regression
-      "task_type" : "pde_pinn",
+      // Deep Symbolic PDE discovery
+      "task_type" : "pde",
 
-      // This can either be (1) the name of the benchmark dataset (see
-      // benchmarks.csv for a list of supported benchmarks) or (2) a path to a
-      // CSV file containing the data.
-      "dataset" : "Burgers2",
+      // The name of the benchmark dataset (all of the avaiable data provided
+      // can be found in ./dso/task/pde/data_new 
+      // New dataset can be added according to the application.
+      "dataset" : "dataset_name",
 
       // To customize a function set, edit this! See functions.py for a list of
-      // supported funcbatch_tions. Note "const" will add placeholder constants that
-      // will be optimized within the training loop. This will considerably
-      // increase runtime.
-      "function_set": ["add_t","sub_t", "mul_t", "div_t", "diff_t","diff2_t", "diff3_t","n2_t","n3_t"],
-      //                 2     3      4      5       6      7      8
-      // Metric to be used for the reward function. See regression.py for
-      // supported metrics.
+      // supported functions. 
+      "function_set": ["add", "mul", "div", "diff","diff2", "diff3","n2","n3"],
+
       "metric" : "pde_reward",
+      // Penalty coefficients for the number of function terms.
       "metric_params" : [0.01],
 
       // Optional alternate metric to be used at evaluation time.
       "extra_metric_test" : null,
       "extra_metric_test_params" : [],
 
-      // NRMSE threshold for early stopping. This is useful for noiseless
-      // benchmark problems when DSO discovers the true solution.
-      "threshold" : 5e-4,
+      //  Threshold for early stopping. This is useful for noiseless
+      // benchmark problems when DISCOVER discovers the true solution.
+      "threshold" : 1e-6,
 
       // With protected=false, floating-point errors (e.g. log of negative
       // number) will simply returns a minimal reward. With protected=true,
@@ -69,43 +35,55 @@
       "reward_noise" : 0.0,
       "reward_noise_type" : "r",
       "normalize_variance" : false,
+
       // Set of thresholds (shared by all input variables) for building
       // decision trees. Note that no StateChecker will be added to Library
       // if decision_tree_threshold_set is an empty list or null.
       "decision_tree_threshold_set" : [],
-      //new set
-      "use_torch":true,
-      "cut_ratio":0.03,
-      "data_noise_level":0.1,
-      "sym_true_input": "add_t,mul_t,u1,diff_t,u1,x1,diff2_t,u1,x1"
-      },
+      "eq_num":1
+   },
    
    // Hyperparameters related to genetic programming hybrid methods.
    "gp_meld" : {
       "run_gp_meld" : false,
       "verbose" : false,
-      // How many GP generations to run between each RNN step. 
-      "generations" : 20,
-      "p_crossover" : 0.5,
-      "p_mutate" : 0.5,
-      "tournament_size" : 5,
-      "train_n" : 50,
-      "mutate_tree_max" : 3
    },
 
    // Only the key training hyperparameters are listed here. See
    // config_common.json for the full list.
    "training" : {
-      "n_samples" : 20000,
-      "batch_size" : 1000,
-      "epsilon" : 0.01,
+      "n_samples" : 2000000,
+      "batch_size" : 100,
+      "epsilon" : 0.02,
       // Recommended to set this to as many cores as you can use! Especially if
       // using the "const" token.
-      "n_cores_batch" : 1,
-      "early_stopping" : false,
-      "stability_selection" : 3
+      "n_cores_batch" : 1
    },
-
+   //pinn training parameters
+   "pinn":  {
+      //task param
+      "use_pinn":false,
+      "use_variance":false,
+      // "iter_num":2,
+      //network param
+      // "number_layer":8,
+      // "input_dim":2,
+      // "n_hidden":32,
+      // "out_dim":1,
+      "activation":"sin",
+      "local_sample":false,
+      // "coef_pde":1,
+      "pinn_epoch": 1000,
+      "duration":500,
+      "lr":0.001,
+      // data
+      // "data_ratio":0.13,
+      // "noise":0.1,
+      // "coll_data":20000,
+      "generation_type": "AD",
+      "data_type":"1D_1U",
+      "eq_num":1
+   },
    // Only the key RNN controller hyperparameters are listed here. See
    // config_common.json for the full list.
    "controller" : {
@@ -116,9 +94,8 @@
       "pqt" : true,
       "pqt_k" : 10,
       "pqt_batch_size" : 1,
-      "pqt_weight" : 0.0,
-      "pqt_use_pg" : true,
-      "attention": true
+      "pqt_weight" : 200.0,
+      "pqt_use_pg" : false
    },
 
    // Hyperparameters related to including in situ priors and constraints. Each
@@ -136,7 +113,7 @@
       // Memory sanity value. Have at most 10 optimizable constants. 
       // This can be set very high, but it runs rather slow. 
       "repeat" : {
-         "tokens" : "add",
+         "tokens" : "const",
          "min_" : null,
          "max_" : 5,
          "on" : true
@@ -148,16 +125,16 @@
          "on" : true
       },
       "const" : {
-         "on" : false
+         "on" : true
       },
       "no_inputs" : {
-         "on" : false
+         "on" : true
       },
       "uniform_arity" : {
          "on" : false
       },
       "soft_length" : {
-         "loc" : 12,
+         "loc" : 10,
          "scale" : 5,
          "on" : true
       },

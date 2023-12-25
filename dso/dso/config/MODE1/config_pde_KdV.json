@@ -30,8 +30,7 @@
       "extra_metric_test" : null,
       "extra_metric_test_params" : [],
 
-      // NRMSE threshold for early stopping. This is useful for noiseless
-      // benchmark problems when DSO discovers the true solution.
+      // threshold for early stopping.
       "threshold" : 5e-4,
 
       // With protected=false, floating-point errors (e.g. log of negative
