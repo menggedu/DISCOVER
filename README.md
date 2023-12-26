@@ -111,7 +111,7 @@ def load_data(data_path='./dso/task/pde/data_new/Kdv.mat'):
    },
 
    // Only the key training hyperparameters are listed here. See
-   // config_common.json for the full list.
+   // config_pde.json for the full list.
    "training" : {
       "n_samples" : 50000,
       "batch_size" : 500,
@@ -120,7 +120,7 @@ def load_data(data_path='./dso/task/pde/data_new/Kdv.mat'):
    },
 
    // Only the key RNN controller hyperparameters are listed here. See
-   // config_common.json for the full list.
+   // config_pde.json for the full list.
    "controller" : {
       "learning_rate": 0.0025,
       "entropy_weight" : 0.03,
