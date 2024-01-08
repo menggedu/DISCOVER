@@ -432,7 +432,7 @@ class STRidge(object):
 
         return results_left
 
-    def coef_calculate(self,rhs, lhs):
+    def coef_calculate(self, rhs, lhs):
         # from sklearn.linear_model import LinearRegression
         # lr = LinearRegression(fit_intercept=False).fit(rhs,lhs)
         try:
@@ -453,7 +453,6 @@ class STRidge(object):
         #     return y_hat_const, w_best_const, False,None,None,rhs_const
         # old
         for i in range(len(w_best)):
-            
 
             if np.abs(w_best[i])<5e-5:
                 if self.add_const and i== len(w_best)-1:
