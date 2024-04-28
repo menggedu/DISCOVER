@@ -197,6 +197,7 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =
 
     elif dataset == 'PAR':
         return load_real_data()
+<<<<<<< HEAD
 
     elif dataset == 'wave':
         data = scipy.io.loadmat('./dso/task/pde/data/matlab_ke_example.mat')
@@ -214,6 +215,8 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =
 
     elif dataset == "chem":
         return load_chem_data()
+=======
+>>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
     else:
         assert False, "Unknown dataset"
     
@@ -230,6 +233,7 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =
     if noise_level>0 and training:
         # ut = ut[math.floor(n*0.1):math.ceil(n*0.9), math.floor(m*0.1):math.ceil(m*0.9)]
         ut = ut[math.floor(n*0.03):math.ceil(n*0.97), math.floor(m*0.03):math.ceil(m*0.97)]
+<<<<<<< HEAD
     # x first
     return [u],X,t,ut,sym_true, n_input_var,[None],n_state_var
 
@@ -288,6 +292,10 @@ def load_chem_data():
     test_list = [[X_val[:,0:1], X_val[:,1:]],y_val ]
     test_list=None
     return [X_train[:,0:1], X_train[:,1:]], x,None, y_train, "add,add,u1,u2,div,u2,u2", 0, test_list, 2
+=======
+    # x fist
+    return [u],X,t,ut,sym_true, n_input_var,None,n_state_var
+>>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
 
 
 def load_real_data():
@@ -594,8 +602,13 @@ def load_param_data(dataset,noise_level=0, data_amount = 1, training=False,cut_r
         
         diff2 = Diff2(u,xx,1)
         udiffu = u*Diff(u,xx,1)
+<<<<<<< HEAD
         # u_list.append(diff2)
         # u_list.append(udiffu)
+=======
+        u_list.append(diff2)
+        u_list.append(udiffu)
+>>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
     else:
         assert False, "wrong dataset"
     n, m = u.shape
@@ -612,8 +625,13 @@ def load_param_data(dataset,noise_level=0, data_amount = 1, training=False,cut_r
     if noise_level>0 and training:
         # ut = ut[math.floor(n*0.1):math.ceil(n*0.9), math.floor(m*0.1):math.ceil(m*0.9)]
         ut = ut[math.floor(n*0.03):math.ceil(n*0.97), math.floor(m*0.03):math.ceil(m*0.97)]    
+<<<<<<< HEAD
     n_state_var = 1
     return u_list,X,t,ut,sym_true, n_input_var,None,n_state_var
+=======
+    
+    return u_list,X,t,ut,sym_true, n_input_var,None
+>>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
 
 def load_subgrid_data(dataset,noise_level=0, data_amount = 1, training=False, data_info=None,cut_ratio = None):
     """

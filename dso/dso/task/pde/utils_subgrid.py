@@ -2,7 +2,11 @@ import numpy as np
 import xarray as xr
 from scipy.stats import pearsonr
 import re
+<<<<<<< HEAD
 import os
+=======
+
+>>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
 
 
 """
@@ -87,6 +91,7 @@ class Subgrid_forcing:
 
 
 ds_path = './dso/task/pde/data/eddy_forcing1_run=0_scipy.nc'
+<<<<<<< HEAD
 if not os.path.exists(ds_path):
     ds,ds_test = None, None
     print("Data for subgrid testing does not exist! ")
@@ -116,6 +121,35 @@ else:
     ddy_t = lambda x: apply_spatial(extractor_test.ddy, x)
     laplacian_t = lambda x: apply_spatial(extractor_test.laplacian, x)
     adv_t = lambda x: apply_spatial(extractor_test.advected, x)
+=======
+lev=0
+ds = xr.open_dataset(ds_path)
+# .isel(lev=lev)
+# ds = netcdf.NetCDFFile(ds_path,'r')
+extractor = Subgrid_forcing(ds)
+# import pdb;pdb.set_trace()
+
+# def make_subgrid_functions(ds, lev = 0):
+def apply_spatial(func, x):
+    r = func(x.reshape(ds.q.shape))
+    if isinstance(r, xr.DataArray): r = r.data
+    return r.reshape(x.shape)
+
+ddx = lambda x: apply_spatial(extractor.ddx, x)
+ddy = lambda x: apply_spatial(extractor.ddy, x)
+laplacian = lambda x: apply_spatial(extractor.laplacian, x)
+adv = lambda x: apply_spatial(extractor.advected, x)
+
+
+test_ds_path = './dso/task/pde/data/eddy_forcing1_run=1_scipy.nc'
+ds_test = xr.open_dataset(test_ds_path)
+extractor_test =Subgrid_forcing(ds_test)
+
+ddx_t = lambda x: apply_spatial(extractor_test.ddx, x)
+ddy_t = lambda x: apply_spatial(extractor_test.ddy, x)
+laplacian_t = lambda x: apply_spatial(extractor_test.laplacian, x)
+adv_t = lambda x: apply_spatial(extractor_test.advected, x)
+>>>>>>> 7ae45d89afdbe4999b4b4ef4edef083eba27947a
 
 
         
