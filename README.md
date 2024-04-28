@@ -6,7 +6,7 @@ open-form PDEs with little prior knowledge.
 
 This repository provides the code and data for following research papers:
 
-(1) DISCOVER: Deep identification of symbolically concise open-form PDEs via enhanced reinforcement-learning. [PDF](https://arxiv.org/pdf/2210.02181.pdf)
+(1) DISCOVER: Deep identification of symbolically concise open-form PDEs via enhanced reinforcement-learning. [PDF](https://journals.aps.org/prresearch/abstract/10.1103/PhysRevResearch.6.013182)
 
 (2) Physics-constrained robust learning of open-formPDEsfrom limited and noisy data. [PDF](https://arxiv.org/ftp/arxiv/papers/2309/2309.07672.pdf)
 
@@ -33,7 +33,7 @@ pip install tensorboard
 # Mode
 There are two executation modes in DISCOVER for dealing with different applications. 
 ## Mode 1
-The first mode is designed for discoving PDEs from high-quality data. Partial derivatives are evaluated by numerical differentiation on regular grids. DNN can be optionally utilized to smoothe available data and generate meta data to reduce the impact of noise. The introduction of the whole framework can be found in the first paper [PDF](https://arxiv.org/pdf/2210.02181.pdf). GPU is not necessary since the matrix calculation is based on Numpy.
+The first mode is designed for discoving PDEs from high-quality data. Partial derivatives are evaluated by numerical differentiation on regular grids. DNN can be optionally utilized to smoothe available data and generate meta data to reduce the impact of noise. The introduction of the whole framework can be found in the first paper [PDF](https://journals.aps.org/prresearch/abstract/10.1103/PhysRevResearch.6.013182). GPU is not necessary since the matrix calculation is based on Numpy.
 
 ## Mode2
 The second mode originates from a robust verison of DISCOVER, named R_DISCOVER, which is designed to handle sparse and noisy data.  A NN is utilized to fit the system response and evaluate the reward by automatic differentiation. It is trained in a PINN manner when effective physical information are discovered. This mode is more suitable for the high-noisy scenarios. The introduction of the whole framework can be found in the second paper [PDF](https://arxiv.org/ftp/arxiv/papers/2309/2309.07672.pdf). GPU resources are required to acclerate the searching process.
@@ -56,7 +56,7 @@ sh  ./script_test/MODE2_test.sh
 
 **controller.py**: Forward and backward process of LSTM Agent.
 
-**core_pde.py**:  Deep symbolic optimization model for PDE discovery. Includes model hyperparameters and construction of basic components.
+**core_pde.py**:  Deep symbolic optimization model for PDE discovery, including model hyperparameters and construction of basic components.
 
 **execute.py**: Evaluate PDE traversal through predefined operators and operands. Automatic differentiation could be utilized.
 
@@ -67,7 +67,7 @@ sh  ./script_test/MODE2_test.sh
 
 **prior.py**: Conduct constraints on the logits output by the agent.
 
-**Program**: The executable program representing the symbolic expression. Each expression is represented by a program.
+**program**: The executable program representing the symbolic expression. Each expression is represented by a program.
 
 **train.py**: procedures of learning.
 
@@ -136,7 +136,3 @@ with open(f'{data_name}.pkl', 'wb') as f:
 
 (2) Mundhenk, T., Landajuela, M., Glatt, R., Santiago, C. P., & Petersen, B. K. (2021). Symbolic Regression via Deep Reinforcement Learning Enhanced Genetic Programming Seeding. Advances in Neural Information Processing Systems, 34, 24912-24923.  [Paper](https://proceedings.neurips.cc/paper/2021/file/d073bb8d0c47f317dd39de9c9f004e9d-Paper.pdf)
 
-
-# Copyright statement
-
-The code of this repository is developed specifically for PDE discovery tasks based on the framework of [DSO](https://github.com/brendenpetersen/deep-symbolic-optimization). This repository is not available for commercial use.
