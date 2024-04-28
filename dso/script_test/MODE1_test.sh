@@ -17,7 +17,7 @@ echo ${job_name}
 # KdV equation discovery
 job_name=KdV
 echo ${job_name}
-python test_pde.py  ${job_name} ${folder}
+# python test_pde.py  ${job_name} ${folder}
 
 # Chafee-Infante equation discovery
 job_name=Chafee

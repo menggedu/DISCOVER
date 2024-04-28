@@ -1,5 +1,8 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 23cc8e3 (fix data dependancy)
 absl-py==2.0.0
 aiohttp==3.9.1
 aiosignal==1.3.1
@@ -60,6 +63,7 @@ tzdata==2023.4
 urllib3 @ file:///C:/b/abs_9cmlsrm3ys/croot/urllib3_1698257595508/work
 win-inet-pton @ file:///C:/ci_310/win_inet_pton_1642658466512/work
 yarl==1.9.4
+<<<<<<< HEAD
 =======
 =======
 >>>>>>> 130aadb (R_discover)
@@ -159,3 +163,5 @@ tensorboard
 =======
 tensorboard
 >>>>>>> db085cc (annote)
+=======
+>>>>>>> 23cc8e3 (fix data dependancy)
