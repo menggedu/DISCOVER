@@ -3,14 +3,15 @@ The working mechanisms of complex natural systems tend to abide by concise and p
 open-form PDEs with little prior knowledge. 
 
 
-
 This repository provides the code and data for following research papers:
 
 (1) DISCOVER: Deep identification of symbolically concise open-form PDEs via enhanced reinforcement-learning. [PDF](https://journals.aps.org/prresearch/abstract/10.1103/PhysRevResearch.6.013182)
 
-(2) Physics-constrained robust learning of open-formPDEsfrom limited and noisy data. [PDF](https://arxiv.org/ftp/arxiv/papers/2309/2309.07672.pdf)
+(2) Physics-constrained robust learning of open-formPDEsfrom limited and noisy data. [PDF](https://pubs.aip.org/aip/pof/article-abstract/36/5/057123/3292510/Physics-constrained-robust-learning-of-open-form)
 
 
+# Framework
+ ![framework](./dso/framework.png)
 
 # Installation
 ```
