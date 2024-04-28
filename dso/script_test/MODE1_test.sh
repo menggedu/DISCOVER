@@ -10,15 +10,19 @@ folder_name=MODE1
 folder=${folder_name}
 mkdir -p ./log/${folder}
 
+
+# job_name=wave
+# echo ${job_name}
+# python test_pde.py  ${job_name} ${folder}
 # KdV equation discovery
 job_name=KdV
 echo ${job_name}
-python test_pde.py  ${job_name} ${folder}
+# python test_pde.py  ${job_name} ${folder}
 
 # Chafee-Infante equation discovery
 job_name=Chafee
 echo ${job_name}
-python test_pde.py  ${job_name} ${folder}
+# python test_pde.py  ${job_name} ${folder}
 
 
 # PDE_Compound equation discovery

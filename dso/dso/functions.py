@@ -10,7 +10,6 @@ from dso.task.pde.utils_v1 import Diff, Diff2, Diff3, Diff4
 from dso.task.pde.utils_nn import torch_diff,Laplacian_t
 from dso.task.pde.utils_v2 import Diff_2, Diff2_2, Laplace
 from dso.task.pde.utils_v3 import Diff_3, Diff2_3
-from dso.task.pde.utils_subgrid import ds, ddx,ddy, laplacian,adv,ddx_t,ddy_t, laplacian_t,adv_t
 import dso.utils as U
 
 
@@ -80,6 +79,8 @@ add_ops = [
     
 ]
 
+from dso.task.pde.utils_subgrid import ds, ddx,ddy, \
+    laplacian,adv,ddx_t,ddy_t, laplacian_t,adv_t
 force_ops = [
     Token(ddx, "ddx", arity=1, complexity=2),
     Token(ddy, "ddy", arity=1, complexity=2),
@@ -131,7 +132,6 @@ unprotected_ops.extend(force_ops)
 def protected_div(x1, x2):
     with np.errstate(divide='ignore', invalid='ignore', over='ignore'):
         return np.where(np.abs(x2) > 0.001, np.divide(x1, x2), 1.)
-
 
 def protected_exp(x1):
     with np.errstate(over='ignore'):

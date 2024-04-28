@@ -186,6 +186,9 @@ class PDETask(HierarchicalTask):
         return r, w
     
     def mse_function(self,p):
+        """
+        task function utilized to calculate mse for coeffcients
+        """
         y_hat, y_right, w = p.execute(self.u, self.x, self.ut)
         diffs = y_hat-self.ut
         loss = (np.mean(np.square(diffs))) 
@@ -299,7 +302,8 @@ def make_pde_metric(name, *args):
                         1),
 
         "correlation": (lambda y,y_hat,n: pearsonr(y.ravel(), y_hat.ravel())[0],
-                        1)
+                        1),
+        "R2":(lambda y, y_hat,n: 1 - ((y_hat - y)**2).sum() / ((y - y.mean())**2).sum() )
 
       
     }

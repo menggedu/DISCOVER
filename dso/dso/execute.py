@@ -35,7 +35,6 @@ def python_execute(traversal, u, x):
                     elif 'lap' == token.name:
                         intermediate_result = token(*[*terminals, x])
                     else:
-                        # import pdb;pdb.set_trace()
                         intermediate_result = token(*terminals)
                 except Exception as e:
                     print(e)

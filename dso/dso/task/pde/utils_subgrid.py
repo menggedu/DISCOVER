@@ -2,7 +2,7 @@ import numpy as np
 import xarray as xr
 from scipy.stats import pearsonr
 import re
-
+import os
 
 
 """
@@ -87,33 +87,35 @@ class Subgrid_forcing:
 
 
 ds_path = './dso/task/pde/data/eddy_forcing1_run=0_scipy.nc'
-lev=0
-ds = xr.open_dataset(ds_path)
-# .isel(lev=lev)
-# ds = netcdf.NetCDFFile(ds_path,'r')
-extractor = Subgrid_forcing(ds)
-# import pdb;pdb.set_trace()
+if not os.path.exists(ds_path):
+    ds,ds_test = None, None
+    print("Data for subgrid testing does not exist! ")
+    ddx,ddy,laplacian,adv,ddx_t,ddy_t,laplacian_t,adv_t = None,None,None, None,None,None, None,None
+else:
+    lev=0
+    test_ds_path = './dso/task/pde/data/eddy_forcing1_run=1_scipy.nc'
+    ds_test = xr.open_dataset(test_ds_path)
+    ds = xr.open_dataset(ds_path)
 
-# def make_subgrid_functions(ds, lev = 0):
-def apply_spatial(func, x):
-    r = func(x.reshape(ds.q.shape))
-    if isinstance(r, xr.DataArray): r = r.data
-    return r.reshape(x.shape)
+    extractor = Subgrid_forcing(ds)
+    # import pdb;pdb.set_trace()
 
-ddx = lambda x: apply_spatial(extractor.ddx, x)
-ddy = lambda x: apply_spatial(extractor.ddy, x)
-laplacian = lambda x: apply_spatial(extractor.laplacian, x)
-adv = lambda x: apply_spatial(extractor.advected, x)
+    def apply_spatial(func, x):
+        r = func(x.reshape(ds.q.shape))
+        if isinstance(r, xr.DataArray): r = r.data
+        return r.reshape(x.shape)
 
+    ddx = lambda x: apply_spatial(extractor.ddx, x)
+    ddy = lambda x: apply_spatial(extractor.ddy, x)
+    laplacian = lambda x: apply_spatial(extractor.laplacian, x)
+    adv = lambda x: apply_spatial(extractor.advected, x)
 
-test_ds_path = './dso/task/pde/data/eddy_forcing1_run=1_scipy.nc'
-ds_test = xr.open_dataset(test_ds_path)
-extractor_test =Subgrid_forcing(ds_test)
+    extractor_test =Subgrid_forcing(ds_test)
 
-ddx_t = lambda x: apply_spatial(extractor_test.ddx, x)
-ddy_t = lambda x: apply_spatial(extractor_test.ddy, x)
-laplacian_t = lambda x: apply_spatial(extractor_test.laplacian, x)
-adv_t = lambda x: apply_spatial(extractor_test.advected, x)
+    ddx_t = lambda x: apply_spatial(extractor_test.ddx, x)
+    ddy_t = lambda x: apply_spatial(extractor_test.ddy, x)
+    laplacian_t = lambda x: apply_spatial(extractor_test.laplacian, x)
+    adv_t = lambda x: apply_spatial(extractor_test.advected, x)
 
 
         

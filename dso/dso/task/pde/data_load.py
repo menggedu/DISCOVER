@@ -197,6 +197,23 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =
 
     elif dataset == 'PAR':
         return load_real_data()
+
+    elif dataset == 'wave':
+        data = scipy.io.loadmat('./dso/task/pde/data/matlab_ke_example.mat')
+        ut = data['tar_eta_t_out']
+        u = data['u_in_out']
+        # import pdb;pdb.set_trace()
+        n_state_var = 15 #state variables dimension
+        n_input_var = 0 # spatial variables are not included.
+        X=[]
+        t=None,
+        sym_true = None #groundtruth of the expression
+        input_list = [u[:,i] for i in range(u.shape[1])]
+        return input_list,X,t,ut,sym_true, n_input_var,[None],n_state_var
+    
+
+    elif dataset == "chem":
+        return load_chem_data()
     else:
         assert False, "Unknown dataset"
     
@@ -213,8 +230,64 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =
     if noise_level>0 and training:
         # ut = ut[math.floor(n*0.1):math.ceil(n*0.9), math.floor(m*0.1):math.ceil(m*0.9)]
         ut = ut[math.floor(n*0.03):math.ceil(n*0.97), math.floor(m*0.03):math.ceil(m*0.97)]
-    # x fist
-    return [u],X,t,ut,sym_true, n_input_var,None,n_state_var
+    # x first
+    return [u],X,t,ut,sym_true, n_input_var,[None],n_state_var
+
+
+
+def inverse_sigmoid(y):
+    # rhs = 1/(1 + np.exp(-rhs))
+    print(y)   
+    y_ = 1/(y)-1
+    # print(np.any(y_<0))
+    y_inv = -np.log(y_)
+
+    return y_inv
+
+
+def load_chem_data():
+    x = []
+    X_train = np.load('./dso/task/pde/data/9/X_train.npy')
+    y_train = np.load('./dso/task/pde/data/9/y_train.npy').reshape(-1,1)
+    X_val = np.load('./dso/task/pde/data/9/X_val.npy')
+    y_val= np.load('./dso/task/pde/data/9/y_val.npy').reshape(-1,1)
+    X_test = np.load('./dso/task/pde/data/9/X_test.npy')
+    y_test= np.load('./dso/task/pde/data/9/y_test.npy').reshape(-1,1)
+    
+    # inverse y
+    # y_train[y_train>=1]=0.999
+    # y_train[y_train<=0] = 0.001
+    # y_train = inverse_sigmoid(y_train)
+
+  # # # # y_pred = 3.48*x1+3.08*x2+1.86
+    # x_cor = np.arange(1, len(y_train)+1)
+    # fig = plt.figure()
+    # plt.scatter(x_cor,y_train,s=5)
+    # x1 = X_train[:,0:1]
+    # x2 = X_train[:,1:]
+    # y_pred = 3.5000 * x2  -0.185 * x2**3 + 2.14 + 3.83* x1
+    # y_trans = 1/(1+np.exp(-1*y_pred))
+
+    # x1_test = X_test[:,0:1]
+    # x2_test = X_test[:,1:]
+    # y_test_pred = 3.5000 * x2_test -0.185 * x2_test**3 + 2.14 + 3.83* x1_test
+    
+    # y_test_trans = 1/(1+np.exp(-1*y_test_pred))
+
+    from sklearn.linear_model import LogisticRegression  
+    LR= LogisticRegression(penalty='l2', C=1e9)
+    LR.fit(X_train, y_train)
+
+    y_pred = LR.predict(X_train)
+    from sklearn.metrics import r2_score
+    R2 = r2_score(y_train,y_trans)
+    R2_test = r2_score(y_test,y_test_trans)
+    print("train R2: ", R2)
+    print("test R2: ", R2_test)
+
+    test_list = [[X_val[:,0:1], X_val[:,1:]],y_val ]
+    test_list=None
+    return [X_train[:,0:1], X_train[:,1:]], x,None, y_train, "add,add,u1,u2,div,u2,u2", 0, test_list, 2
 
 
 def load_real_data():
@@ -521,8 +594,8 @@ def load_param_data(dataset,noise_level=0, data_amount = 1, training=False,cut_r
         
         diff2 = Diff2(u,xx,1)
         udiffu = u*Diff(u,xx,1)
-        u_list.append(diff2)
-        u_list.append(udiffu)
+        # u_list.append(diff2)
+        # u_list.append(udiffu)
     else:
         assert False, "wrong dataset"
     n, m = u.shape
@@ -539,8 +612,8 @@ def load_param_data(dataset,noise_level=0, data_amount = 1, training=False,cut_r
     if noise_level>0 and training:
         # ut = ut[math.floor(n*0.1):math.ceil(n*0.9), math.floor(m*0.1):math.ceil(m*0.9)]
         ut = ut[math.floor(n*0.03):math.ceil(n*0.97), math.floor(m*0.03):math.ceil(m*0.97)]    
-    
-    return u_list,X,t,ut,sym_true, n_input_var,None
+    n_state_var = 1
+    return u_list,X,t,ut,sym_true, n_input_var,None,n_state_var
 
 def load_subgrid_data(dataset,noise_level=0, data_amount = 1, training=False, data_info=None,cut_ratio = None):
     """

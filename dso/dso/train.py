@@ -261,17 +261,17 @@ def learn(sess, controller, pool, gp_controller, gp_aggregator, pinn_model, outp
                          save_cache_r_min, save_freq, save_token_count, save_rewards, save_all_rewards)
 
     sym_true = Program.task.sym_true
-    p_true = from_str_tokens(sym_true)
-    
-    # import pdb;pdb.set_trace()
-    p_true_r = p_true.r_ridge
-    print('*'*6+" True expression "+ '*'*6)
-    print("expression: ", p_true.str_expression)
-    
-    result_true = p_true.evaluate
-    print("mse: ", result_true['nmse_test'])
-    print(f"reward: {p_true_r}")
-    print("success or  not :", result_true['success'])
+    if sym_true is not None:
+        p_true = from_str_tokens(sym_true)
+        # import pdb;pdb.set_trace()
+        p_true_r = p_true.r_ridge
+        print('*'*6+" True expression "+ '*'*6)
+        print("expression: ", p_true.str_expression)
+        
+        result_true = p_true.evaluate
+        print("mse: ", result_true['nmse_test'])
+        print(f"reward: {p_true_r}")
+        print("success or  not :", result_true['success'])
     
     start_time = time.time()
     st = time.time()

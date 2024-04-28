@@ -5,6 +5,7 @@ import torch
 from dso.task.pde.utils_noise import tensor2np,cut_bound
 from dso.execute import python_execute, python_execute_torch
 from dso.task.pde.utils_nn import torch_diff
+
 class InvalidLog():
     """Log class to catch and record numpy warning messages"""
 
@@ -77,6 +78,7 @@ class Node(object):
         
 
     def __repr__(self):
+        # import pdb;pdb.set_trace()
         children_repr = ",".join(repr(child) for child in self.children)
         if len(self.children) == 0:
             return self.val # Avoids unnecessary parantheses, e.g. x1()
@@ -259,7 +261,7 @@ class STRidge(object):
                     print("wrong children number")
                     assert False
             return traversals  
-        # import  pdb;pdb.set_trace()
+
         term_list = split_sum(root)
         #initial symbols for each terms (+,-)
         expand_list(term_list)
@@ -338,12 +340,11 @@ class STRidge(object):
         return self.coef_calculate(results,ut)
 
     def calculate(self, u,x,ut, test=False, execute_function = unsafe_execute, cached=None):
-        #evaluate function terms
         
+        #evaluate function terms
         results = self.evaluate_terms(u,x, test=False, execute_function = execute_function)
         if isinstance(results, tuple):
-            return results
-        
+            return results   
         #coefficient calculation
         if not isinstance(ut, list):
             # self.results = results
@@ -352,14 +353,13 @@ class STRidge(object):
                 results = np.concatenate((results, np.ones((results.shape[0], 1))), axis = 1)
             return self.coef_calculate(results,ut)
         else:
-            #stridge
+            
             results_reshape = [res.reshape(u[0].shape) for res in results]
             t_shape,lev_shape, x_shape, y_shape = u[0].shape
             results_new = [[res[:,i,:,:].reshape(-1) for res in results_reshape ] for i in range(lev_shape)]
-            # self.results = results_new
+
             return self.multi_coef_calculate(results_new,ut, cached_terms = cached)
             # multi state
-            # pass
 
     def calculate_RHS_terms(self, u, x, execute_func = unsafe_execute_torch, extra_gradient=False):
         
@@ -435,6 +435,11 @@ class STRidge(object):
     def coef_calculate(self,rhs, lhs):
         # from sklearn.linear_model import LinearRegression
         # lr = LinearRegression(fit_intercept=False).fit(rhs,lhs)
+
+        # from sklearn import linear_model
+        # logistic = linear_model.LogisticRegression() 
+        # rhs = 1/(1 + np.exp(-rhs))
+
         try:
             w_best = np.linalg.lstsq(rhs, lhs)[0]
         except Exception as e:
@@ -531,7 +536,7 @@ class STRidge(object):
        
         omit_list, err_list = self.regulation.apply_regulations(x,traversal, self.terms_token, self.depth)
         if len(err_list)>0:
-            if len(err_list) == 1 and 'spatial_error' in err_list and self.spatial_error:
+            if len(err_list) == 1 and 'spatial_error' in err_list: #and self.spatial_error:
                 invalid=True
                 return 0,[0],invalid,'spatial_error','spatial_error',None
             else:
