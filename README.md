@@ -137,3 +137,4 @@ with open(f'{data_name}.pkl', 'wb') as f:
 
 (2) Mundhenk, T., Landajuela, M., Glatt, R., Santiago, C. P., & Petersen, B. K. (2021). Symbolic Regression via Deep Reinforcement Learning Enhanced Genetic Programming Seeding. Advances in Neural Information Processing Systems, 34, 24912-24923.  [Paper](https://proceedings.neurips.cc/paper/2021/file/d073bb8d0c47f317dd39de9c9f004e9d-Paper.pdf)
 
+(3) https://github.com/dso-org/deep-symbolic-optimization
