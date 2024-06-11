@@ -93,7 +93,7 @@ def load_1d_data(dataset,
                  ):
  
     if dataset == 'Burgers2':
-        data = scipy.io.loadmat('./dso/task/pde/data/burgers2.mat')
+        data = scipy.io.loadmat('./dso/task/pde/data_new/burgers2.mat')
         
         t = np.real(data['t'].flatten()[:,None])
         x = np.real(data['x'].flatten()[:,None])
@@ -116,14 +116,14 @@ def load_1d_data(dataset,
         Exact = np.real(data['usol']).T
         # import pdb;pdb.set_trace()
     elif dataset == 'fisher':
-        data=scipy.io.loadmat('./dso/task/pde/data/fisher_nonlin_groundtruth.mat')
+        data=scipy.io.loadmat('./dso/task/pde/data_new/fisher_nonlin_groundtruth.mat')
 
         x=np.squeeze(data['x'])[1:-1].reshape(-1,1)
         t=np.squeeze(data['t'])[1:-1].reshape(-1,1)
         Exact=data['U'][1:-1,1:-1]
         
     elif dataset == 'fisher_linear':
-        data=scipy.io.loadmat('./dso/task/pde/data/fisher_groundtruth.mat')
+        data=scipy.io.loadmat('./dso/task/pde/data_new/fisher_groundtruth.mat')
 
         x=np.squeeze(data['x'])[1:-1].reshape(-1,1)
         t=np.squeeze(data['t'])[1:-1].reshape(-1,1)
