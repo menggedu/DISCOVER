@@ -1,0 +1,225 @@
+{
+   "task" : {
+      // Deep Symbolic PDE discovery
+      "task_type" : "pde",
+
+      // The name of the benchmark dataset (all of the avaiable data provided
+      // can be found in ./dso/task/pde/data_new 
+      // New dataset can be added according to the application.
+      "dataset" : "dataset_name",
+
+      // To customize a function set, edit this! See functions.py for a list of
+      // supported functions. 
+      "function_set": ["add", "mul", "div", "diff","diff2", "diff3","n2","n3"],
+
+      "metric" : "pde_reward",
+      // Penalty coefficients for the number of function terms.
+      "metric_params" : [0.01],
+
+      // Optional alternate metric to be used at evaluation time.
+      "extra_metric_test" : null,
+      "extra_metric_test_params" : [],
+
+      //  Threshold for early stopping. This is useful for noiseless
+      // benchmark problems when DISCOVER discovers the true solution.
+      "threshold" : 1e-6,
+
+      "eq_num":1
+   },
+   //gp_aggregator
+   "gp_agg":{
+      "run_gp_agg":false,
+      "gp":{},
+      "STRidge":{}
+   },
+   "parameterized":{
+      "on":false,
+      "validation_type":""
+   },
+   // Only the key training hyperparameters are listed here. See
+   // config_common.json for the full list.
+   "training" : {
+ // These parameters control the length of the run. Specify exactly one of
+      // [n_epochs, n_samples]. The other must be null.
+      "n_epochs" : null,
+      "n_samples" : 20000,
+      "batch_size" : 1000,
+      "epsilon" : 0.02,
+      // To use the risk-seeking policy gradient, set epsilon < 1.0 and
+      // baseline="R_e"
+      "baseline" : "R_e",
+
+      // Control variate parameters for vanilla policy gradient. If risk-seeking
+      // is used, these have no effect.
+      "alpha" : 0.5,
+      "b_jumpstart" : false,
+
+      // Number of cores to use when evaluating a batch of rewards. For batch
+      // runs using run.py and --runs > 1, this will be overridden to 1. For
+      // single runs, recommended to set this to as many cores as you can use!
+      "n_cores_batch" : 1,
+
+      // The complexity measure is only used to compute a Pareto front. It does
+      // not affect the optimization.
+      "complexity" : "length",
+      
+      // Default terms for equations as prior info
+      "default_terms":[],
+
+      // The constant optimizer used to optimized each "const" token.
+      "const_optimizer" : "dummy",
+      "const_params" : {},
+      "verbose" : true,
+
+      // Debug level
+      "debug" : 1,
+
+      // Whether to stop early if success condition is met
+      "early_stopping" : true,
+
+      // Size of the "hall of fame" (top performers during training) to save.
+      "hof" : 10,
+
+      // EXPERIMENTAL: Hyperparameters related to utilizing a memory buffer.
+      "use_memory" : false,
+      "memory_capacity" : 1e3,
+      "warm_start" : null,
+      "memory_threshold" : null,
+
+      // Parameters to control what outputs to save.
+      "save_all_epoch" : false,
+      "save_summary" : true,
+      "save_positional_entropy" : false,
+      "save_pareto_front" : true,
+      "save_cache" : false,
+      "save_cache_r_min" : 0.9,
+      "save_freq" : 1,
+      "save_token_count" : false,
+
+      // Parameters new
+      "remove_same":false,
+      "stability_selection" : false
+
+   },
+   //pinn training parameters
+   "pinn":  {
+      //task param
+      "use_variance":false,
+      "iter_num":3,
+      //network param
+      "number_layer":8,
+      "input_dim":2,
+      "n_hidden":20,
+      "out_dim":1,
+      "activation":"tanh",
+      "coef_pde":1,
+      "local_sample":true,
+      "pinn_epoch": 1000,
+      "duration":500,
+      // data
+      "data_ratio":0.04,
+      "noise":0.1,
+      "coll_data":50000,
+      "generation_type": "AD",
+   },
+   // Only the key RNN controller hyperparameters are listed here. See
+   // config_common.json for the full list.
+   "controller" : {
+
+         // Maximum sequence length.
+         "max_length" : 256,
+   
+         // RNN architectural hyperparameters.
+         "cell" : "lstm",
+         "num_layers" : 1,
+         "num_units" : 32,
+         "initializer" : "zeros",
+   
+         // Optimizer hyperparameters.
+         "learning_rate" : 0.0025,
+         "optimizer" : "adam",
+   
+         // Entropy regularizer hyperparameters.
+         "entropy_weight" : 0.03,
+         "entropy_gamma" : 0.7,
+   
+         // EXPERIMENTAL: Priority queue training hyperparameters.
+         "pqt" : true,
+         "pqt_k" : 10,
+         "pqt_batch_size" : 1,
+         "pqt_weight" : 0,
+         "pqt_use_pg" : false,
+   
+         // Whether to compute TensorBoard summaries.
+         "summary" : true,
+         "attention": false,
+         "atten_len":20
+      },
+      // The State Manager defines the inputs to the Controller
+   "state_manager": {
+      "type" : "hierarchical",
+      // Observation hyperparameters
+      "observe_action" : false,
+      "observe_parent" : true,
+      "observe_sibling" : true,
+      "observe_dangling" : false,
+      "embedding" : false,
+      "embedding_size" : 8
+   },
+
+   // Hyperparameters related to including in situ priors and constraints. Each
+   // prior must explicitly be turned "on" or it will not be used. See
+   // config_common.json for descriptions of each prior.
+   "prior": {
+      // Memory sanity value. Limit strings to size 256
+      // This can be set very high, but it runs slower.
+      // Max value is 1000. 
+      "length" : {
+         "min_" : 3,
+         "max_" : 64,
+         "on" : true
+      },
+      // Memory sanity value. Have at most 10 optimizable constants. 
+      // This can be set very high, but it runs rather slow. 
+      "repeat" : {
+         "tokens" : "add",
+         "min_" : null,
+         "max_" : 5,
+         "on" : true
+      },
+      "inverse" : {
+         "on" : true
+      },
+      "trig" : {
+         "on" : true
+      },
+      "const" : {
+         "on" : false
+      },
+      "no_inputs" : {
+         "on" : false
+      },
+      "uniform_arity" : {
+         "on" : false
+      },
+      "soft_length" : {
+         "loc" : 10,
+         "scale" : 5,
+         "on" : true
+      },
+      "diff_left":{
+         "on":true
+      },
+      "diff_right":{
+         "on":true
+      },
+      "diff_descedent":{
+         "on":true
+      }
+   },
+   // Postprocessing hyperparameters.
+   "postprocess" : {
+      "show_count" : 5,
+      "save_plots" : true
+   }
+}
