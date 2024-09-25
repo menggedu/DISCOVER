@@ -24,6 +24,7 @@
       // benchmark problems when DISCOVER discovers the true solution.
       "threshold" : 1e-6,
 
+<<<<<<< HEAD
       "eq_num":1
    },
    //gp_aggregator
@@ -100,10 +101,47 @@
       "remove_same":false,
       "stability_selection" : false
 
+=======
+      // With protected=false, floating-point errors (e.g. log of negative
+      // number) will simply returns a minimal reward. With protected=true,
+      // "protected" functions will prevent floating-point errors, but may
+      // introduce discontinuities in the learned functions.      
+      "protected" : false,
+
+      // You can add artificial reward noise directly to the reward function.
+      // Note this does NOT add noise to the dataset.
+      "reward_noise" : 0.0,
+      "reward_noise_type" : "r",
+      "normalize_variance" : false,
+
+      // Set of thresholds (shared by all input variables) for building
+      // decision trees. Note that no StateChecker will be added to Library
+      // if decision_tree_threshold_set is an empty list or null.
+      "decision_tree_threshold_set" : [],
+      "eq_num":1
+   },
+   
+   // Hyperparameters related to genetic programming hybrid methods.
+   "gp_meld" : {
+      "run_gp_meld" : false,
+      "verbose" : false,
+   },
+
+   // Only the key training hyperparameters are listed here. See
+   // config_common.json for the full list.
+   "training" : {
+      "n_samples" : 2000000,
+      "batch_size" : 100,
+      "epsilon" : 0.02,
+      // Recommended to set this to as many cores as you can use! Especially if
+      // using the "const" token.
+      "n_cores_batch" : 1
+>>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
    },
    //pinn training parameters
    "pinn":  {
       //task param
+<<<<<<< HEAD
       "use_variance":false,
       "iter_num":3,
       //network param
@@ -121,10 +159,34 @@
       "noise":0.1,
       "coll_data":50000,
       "generation_type": "AD",
+=======
+      "use_pinn":false,
+      "use_variance":false,
+      // "iter_num":2,
+      //network param
+      // "number_layer":8,
+      // "input_dim":2,
+      // "n_hidden":32,
+      // "out_dim":1,
+      "activation":"sin",
+      "local_sample":false,
+      // "coef_pde":1,
+      "pinn_epoch": 1000,
+      "duration":500,
+      "lr":0.001,
+      // data
+      // "data_ratio":0.13,
+      // "noise":0.1,
+      // "coll_data":20000,
+      "generation_type": "AD",
+      "data_type":"1D_1U",
+      "eq_num":1
+>>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
    },
    // Only the key RNN controller hyperparameters are listed here. See
    // config_common.json for the full list.
    "controller" : {
+<<<<<<< HEAD
 
          // Maximum sequence length.
          "max_length" : 256,
@@ -165,6 +227,17 @@
       "observe_dangling" : false,
       "embedding" : false,
       "embedding_size" : 8
+=======
+      "learning_rate": 0.0025,
+      "entropy_weight" : 0.03,
+      "entropy_gamma" : 0.7,
+      // Priority queue training hyperparameters.
+      "pqt" : true,
+      "pqt_k" : 10,
+      "pqt_batch_size" : 1,
+      "pqt_weight" : 200.0,
+      "pqt_use_pg" : false
+>>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
    },
 
    // Hyperparameters related to including in situ priors and constraints. Each
@@ -176,13 +249,21 @@
       // Max value is 1000. 
       "length" : {
          "min_" : 3,
+<<<<<<< HEAD
          "max_" : 64,
+=======
+         "max_" : 256,
+>>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
          "on" : true
       },
       // Memory sanity value. Have at most 10 optimizable constants. 
       // This can be set very high, but it runs rather slow. 
       "repeat" : {
+<<<<<<< HEAD
          "tokens" : "add",
+=======
+         "tokens" : "const",
+>>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
          "min_" : null,
          "max_" : 5,
          "on" : true
@@ -194,10 +275,17 @@
          "on" : true
       },
       "const" : {
+<<<<<<< HEAD
          "on" : false
       },
       "no_inputs" : {
          "on" : false
+=======
+         "on" : true
+      },
+      "no_inputs" : {
+         "on" : true
+>>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
       },
       "uniform_arity" : {
          "on" : false
@@ -216,10 +304,13 @@
       "diff_descedent":{
          "on":true
       }
+<<<<<<< HEAD
    },
    // Postprocessing hyperparameters.
    "postprocess" : {
       "show_count" : 5,
       "save_plots" : true
+=======
+>>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
    }
 }

@@ -27,8 +27,12 @@
       "data_ratio":0.04,
       "noise":0.5,
       "coll_data":50000,
+<<<<<<< HEAD
       "generation_type": "AD",
       "pretrain_path":"/code/DISCOVER/dso/log_pinn/MODE2/config_pde_Burgers2_noise_0.50_2024-08-17-160824/dso_Burgers2_0_pretrain.ckpt"
+=======
+      "generation_type": "AD"
+>>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
    },
 
    "task" : {
