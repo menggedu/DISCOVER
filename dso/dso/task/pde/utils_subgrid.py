@@ -89,11 +89,8 @@ class Subgrid_forcing:
 ds_path = './dso/task/pde/data/eddy_forcing1_run=0_scipy.nc'
 if not os.path.exists(ds_path):
     ds,ds_test = None, None
-<<<<<<< HEAD
     # print("Data for subgrid testing does not exist! ")
-=======
     print("Data for subgrid testing does not exist! ")
->>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
     ddx,ddy,laplacian,adv,ddx_t,ddy_t,laplacian_t,adv_t = None,None,None, None,None,None, None,None
 else:
     lev=0

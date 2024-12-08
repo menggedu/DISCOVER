@@ -266,11 +266,8 @@ def safe_merge_dicts(base_dict, update_dict):
     """
     if base_dict is None:
         return update_dict
-<<<<<<< HEAD
     if update_dict is None:
         return base_dict
-=======
->>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
     base_dict = copy.deepcopy(base_dict)
     for key, value in update_dict.items():
         if isinstance(value, collections.Mapping):
@@ -339,7 +336,6 @@ def import_custom_source(import_source):
     func = getattr(mod, type)
 
     return func
-<<<<<<< HEAD
 
 def set_seeds(seed):
     """
@@ -353,5 +349,3 @@ def set_seeds(seed):
     random.seed(seed)
     torch.random.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-=======
->>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a

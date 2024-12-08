@@ -24,7 +24,6 @@
       // benchmark problems when DISCOVER discovers the true solution.
       "threshold" : 1e-6,
 
-<<<<<<< HEAD
       "eq_num":1
    },
    //gp_aggregator
@@ -101,7 +100,6 @@
       "remove_same":false,
       "stability_selection" : false
 
-=======
       // With protected=false, floating-point errors (e.g. log of negative
       // number) will simply returns a minimal reward. With protected=true,
       // "protected" functions will prevent floating-point errors, but may
@@ -136,12 +134,10 @@
       // Recommended to set this to as many cores as you can use! Especially if
       // using the "const" token.
       "n_cores_batch" : 1
->>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
    },
    //pinn training parameters
    "pinn":  {
       //task param
-<<<<<<< HEAD
       "use_variance":false,
       "iter_num":3,
       //network param
@@ -159,7 +155,6 @@
       "noise":0.1,
       "coll_data":50000,
       "generation_type": "AD",
-=======
       "use_pinn":false,
       "use_variance":false,
       // "iter_num":2,
@@ -181,12 +176,10 @@
       "generation_type": "AD",
       "data_type":"1D_1U",
       "eq_num":1
->>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
    },
    // Only the key RNN controller hyperparameters are listed here. See
    // config_common.json for the full list.
    "controller" : {
-<<<<<<< HEAD
 
          // Maximum sequence length.
          "max_length" : 256,
@@ -227,7 +220,6 @@
       "observe_dangling" : false,
       "embedding" : false,
       "embedding_size" : 8
-=======
       "learning_rate": 0.0025,
       "entropy_weight" : 0.03,
       "entropy_gamma" : 0.7,
@@ -237,7 +229,6 @@
       "pqt_batch_size" : 1,
       "pqt_weight" : 200.0,
       "pqt_use_pg" : false
->>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
    },
 
    // Hyperparameters related to including in situ priors and constraints. Each
@@ -249,21 +240,14 @@
       // Max value is 1000. 
       "length" : {
          "min_" : 3,
-<<<<<<< HEAD
          "max_" : 64,
-=======
          "max_" : 256,
->>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
          "on" : true
       },
       // Memory sanity value. Have at most 10 optimizable constants. 
       // This can be set very high, but it runs rather slow. 
       "repeat" : {
-<<<<<<< HEAD
          "tokens" : "add",
-=======
-         "tokens" : "const",
->>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
          "min_" : null,
          "max_" : 5,
          "on" : true
@@ -275,17 +259,10 @@
          "on" : true
       },
       "const" : {
-<<<<<<< HEAD
          "on" : false
       },
       "no_inputs" : {
          "on" : false
-=======
-         "on" : true
-      },
-      "no_inputs" : {
-         "on" : true
->>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
       },
       "uniform_arity" : {
          "on" : false
@@ -304,13 +281,10 @@
       "diff_descedent":{
          "on":true
       }
-<<<<<<< HEAD
    },
    // Postprocessing hyperparameters.
    "postprocess" : {
       "show_count" : 5,
       "save_plots" : true
-=======
->>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
    }
 }

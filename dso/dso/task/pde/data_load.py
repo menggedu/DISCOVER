@@ -222,11 +222,8 @@ def load_data(dataset,noise_level=0, data_amount = 1, training=False,cut_ratio =
     dt = t[1]-t[0]
     X.append(x)
  
-<<<<<<< HEAD
     # print("noise level:" , noise_level)
-=======
     print("noise level:" , noise_level)
->>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
 
     for idx in range(n):
         ut[idx, :] = FiniteDiff(u[idx, :], dt)
@@ -609,11 +606,8 @@ def load_param_data(dataset,noise_level=0, data_amount = 1, training=False,cut_r
     X.append(tt)
     X.append("t info")
  
-<<<<<<< HEAD
     # print("noise level:" , noise_level)
-=======
     print("noise level:" , noise_level)
->>>>>>> eb2ddef1a18afc7fe816155fdbf559f0d942263a
     # import pdb;pdb.set_trace()
     for idx in range(n):
         ut[idx, :] = FiniteDiff(u[idx, :], dt)
