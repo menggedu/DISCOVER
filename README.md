@@ -17,7 +17,7 @@ This repository provides the code and data for following research papers:
 ```
 conda create -n env_name python=3.7 # Create a Python 3 virtual environment with conda.
 source activate env_name # Activate the virtual environment
-
+````
 Extra dependencies,
 ```
 pip install -r requirements.txt # Possible incompatibility may occurs due to the version of tensorboard. Manually installing it may be required.
@@ -26,7 +26,7 @@ pip install tensorboard==1.15
 
 possible error:
 ```
-f this call came from a _pb2.py file, your generated code is out of date and must be regenerated with protoc >= 3.19.0.
+If this call came from a _pb2.py file, your generated code is out of date and must be regenerated with protoc >= 3.19.0.
 If you cannot immediately regenerate your protos, some other possible workarounds are:
  1. Downgrade the protobuf package to 3.20.x or lower.
  2. Set PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python (but this will use pure-Python parsing and will be much slower).
