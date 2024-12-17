@@ -28,7 +28,7 @@
    "noise":0.5,
    "coll_data":50000,
    "generation_type": "AD",
-   "pretrain_path":"/code/DISCOVER/dso/log_pinn/MODE2/config_pde_Burgers2_noise_0.50_2024-08-17-160824/dso_Burgers2_0_pretrain.ckpt"
+   // "pretrain_path":"/code/DISCOVER/dso/log_pinn/MODE2/config_pde_Burgers2_noise_0.50_2024-08-17-160824/dso_Burgers2_0_pretrain.ckpt"
 },
 
 "task" : {

@@ -17,18 +17,21 @@ This repository provides the code and data for following research papers:
 ```
 conda create -n env_name python=3.7 # Create a Python 3 virtual environment with conda.
 source activate env_name # Activate the virtual environment
-```
-From the root directory, 
-```
-pip install --upgrade setuptools pip
-export CFLAGS="-I $(python -c "import numpy; print(numpy.get_include())") $CFLAGS" # Needed on Mac to prevent fatal error: 'numpy/arrayobject.h' file not found
-pip install -e ./dso # Install  package and core dependencies
 
-```
 Extra dependencies,
 ```
 pip install -r requirements.txt # Possible incompatibility may occurs due to the version of tensorboard. Manually installing it may be required.
-pip install tensorboard 
+pip install tensorboard==1.15
+```
+
+possible error:
+```
+f this call came from a _pb2.py file, your generated code is out of date and must be regenerated with protoc >= 3.19.0.
+If you cannot immediately regenerate your protos, some other possible workarounds are:
+ 1. Downgrade the protobuf package to 3.20.x or lower.
+ 2. Set PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python (but this will use pure-Python parsing and will be much slower).
+
+please reinstall protobuf by pip install protobuf==3.20
 ```
 
 # Mode
@@ -40,7 +43,7 @@ The first mode is designed for discoving PDEs from high-quality data. Partial de
 The second mode originates from a robust verison of DISCOVER, named R_DISCOVER, which is designed to handle sparse and noisy data.  A NN is utilized to fit the system response and evaluate the reward by automatic differentiation. It is trained in a PINN manner when effective physical information are discovered. This mode is more suitable for the high-noisy scenarios. The introduction of the whole framework can be found in the second paper [PDF](https://arxiv.org/ftp/arxiv/papers/2309/2309.07672.pdf). GPU resources are required to acclerate the searching process.
 
 # Quick start
-Please refer to quick_start.ipynb for a quick start (to be updated).
+Please refer to dso/quick_start.ipynb for a quick start (to be updated).
 
 # Run
  For the first mode, several benchmark datasets are provided, including Chafee-Infante equation, KdV equations and PDE_divide, etc. Run the script below can repeat the results in the first paper.

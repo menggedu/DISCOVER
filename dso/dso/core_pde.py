@@ -337,7 +337,8 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
         return manager_make_state_manager(self.config_state_manager)
 
     def make_pinn_model(self):
-        device = torch.device('cuda:0')
+        device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+        print(f"Available device is {device}")
         if not self.config_pinn['use_pinn']:
             model = None
         else:

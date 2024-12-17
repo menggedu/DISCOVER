@@ -14,7 +14,7 @@ scipy
 seaborn
 setuptools
 sympy
-tensorflow
+tensorflow==1.14
 torch
 tqdm
 xarray
