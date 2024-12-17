@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 
-import tensorflow as tf
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
 
 from dso.program import Program
 
@@ -120,57 +123,56 @@ class HierarchicalStateManager(StateManager):
         # Create embeddings if needed
         # import pdb;pdb.set_trace()
         if self.embedding:
-            initializer = tf.random_uniform_initializer(minval=-1.0,
-                                                        maxval=1.0,
-                                                        seed=0)
-            with tf.variable_scope("embeddings", initializer=initializer):
-                if self.observe_action:
-                    self.action_embeddings = tf.get_variable("action_embeddings",
-                                                             [self.library.n_action_inputs, self.embedding_size],
-                                                             trainable=True)
-                if self.observe_parent:
-                    self.parent_embeddings = tf.get_variable("parent_embeddings",
-                                                             [self.library.n_parent_inputs, self.embedding_size],
-                                                             trainable=True)
-                if self.observe_sibling:
-                    self.sibling_embeddings = tf.get_variable("sibling_embeddings",
-                                                              [self.library.n_sibling_inputs, self.embedding_size],
-                                                              trainable=True)
+            self.initializer = nn.init.uniform_
+            if self.observe_action:
+                self.action_embeddings = nn.Parameter(
+                    torch.empty(self.library.n_action_inputs, self.embedding_size)
+                    )
+                self.initializer(self.action_embeddings, a=-1.0, b=1.0)
+            if self.observe_parent:
+                self.parent_embeddings = nn.Parameter(
+                    torch.empty(self.library.n_parent_inputs, self.embedding_size)
+                    )
+                self.initializer(self.parent_embeddings, a=-1.0, b=1.0)
+            if self.observe_sibling:
+                self.sibling_embeddings = nn.Parameter(
+                    torch.empty(self.library.n_sibling_inputs, self.embedding_size)
+                    )
+                self.initializer(self.sibling_embeddings, a=-1.0, b=1.0)
 
     def get_tensor_input(self, obs):
         observations = []
-        action, parent, sibling, dangling = tf.unstack(obs, axis=1)
-
+        action, parent, sibling, dangling = np.split(obs, obs.shape[1], axis=1)
         # Cast action, parent, sibling to int for embedding_lookup or one_hot
-        action = tf.cast(action, tf.int32)
-        parent = tf.cast(parent, tf.int32)
-        sibling = tf.cast(sibling, tf.int32)
 
+
+        action = torch.Tensor(action).to(torch.int64)
+        parent = torch.Tensor(parent).to(torch.int64)
+        sibling = torch.Tensor(sibling).to(torch.int64)
         # Action, parent, and sibling inputs are either one-hot or embeddings
         if self.observe_action:
             if self.embedding:
-                x = tf.nn.embedding_lookup(self.action_embeddings, action)
+                x = self.action_embeddings(action)
             else:
-                x = tf.one_hot(action, depth=self.library.n_action_inputs)
+                x = F.one_hot(action, num_classes=self.library.n_action_inputs)
             observations.append(x)
         if self.observe_parent:
             if self.embedding:
-                x = tf.nn.embedding_lookup(self.parent_embeddings, parent)
+                x = self.parent_embeddings(parent)
             else:
                 # import pdb;pdb.set_trace()
-                x = tf.one_hot(parent, depth=self.library.n_parent_inputs)
+                x = F.one_hot(parent, num_classes=self.library.n_parent_inputs)
             observations.append(x)
         if self.observe_sibling:
             if self.embedding:
-                x = tf.nn.embedding_lookup(self.sibling_embeddings, sibling)
+                x = self.sibling_embeddings(sibling)
             else:
-                x = tf.one_hot(sibling, depth=self.library.n_sibling_inputs)
+                x = F.one_hot(sibling, num_classes=self.library.n_sibling_inputs)
             observations.append(x)
 
         # Dangling input is just the value of dangling
         if self.observe_dangling:
-            x = tf.expand_dims(dangling, axis=-1)
+            x = dangling.unsqueeze(-1)
             observations.append(x)
-
-        input_ = tf.concat(observations, -1)
+        input_ = torch.cat(observations, dim=-1)
         return input_

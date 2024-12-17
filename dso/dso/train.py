@@ -5,8 +5,8 @@ import time
 from itertools import compress,chain
 import dill
 from multiprocessing import cpu_count, Pool
-import tensorflow as tf
 import numpy as np
+import torch
 
 from dso.program import Program, from_tokens,from_str_tokens
 from dso.utils import empirical_entropy, get_duration, weighted_quantile, draw_criterion, filter_same,criterion
@@ -15,12 +15,6 @@ from dso.memory import Batch, make_queue
 from dso.variance import quantile_variance
 from dso.train_stats import StatsLogger
 
-# Ignore TensorFlow warnings
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
-# Set TensorFlow seed
-tf.set_random_seed(0)
 
 
 # Work for multiprocessing pool: compute reward
@@ -30,7 +24,7 @@ def work(p):
     return p
 
 
-def learn(sess, controller, pool, gp_controller, gp_aggregator, pinn_model, output_file,p_external,
+def learn( controller, pool, gp_controller, gp_aggregator, pinn_model, output_file,p_external,
           n_epochs=None, n_samples=2000000, batch_size=1000, complexity="token",default_terms = [],
           const_optimizer="scipy", const_params=None, alpha=0.5,
           epsilon=0.05, n_cores_batch=1, verbose=True, save_summary=False,
@@ -53,8 +47,6 @@ def learn(sess, controller, pool, gp_controller, gp_aggregator, pinn_model, outp
 
     Parameters
     ----------r_max
-    sess : tf.Session
-        TensorFlow Session object.
 
     controller : dso.controller.Controller
         Controller object used to generate Programs.
@@ -185,16 +177,7 @@ def learn(sess, controller, pool, gp_controller, gp_aggregator, pinn_model, outp
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
 
-    # Initialize compute graph
-    sess.run(tf.global_variables_initializer())
 
-    if debug:
-        tvars = tf.trainable_variables()
-
-        def print_var_means():
-            tvars_vals = sess.run(tvars)
-            for var, val in zip(tvars, tvars_vals):
-                print(var.name, "mean:", val.mean(), "var:", val.var())
 
     # Create the priority queue
     k = controller.pqt_k
@@ -222,10 +205,6 @@ def learn(sess, controller, pool, gp_controller, gp_aggregator, pinn_model, outp
         memory_queue.push_batch(sampled_batch, programs)
     else:
         memory_queue = None
-
-    if debug >= 1:
-        print("\nInitial parameter means:")
-        print_var_means()
 
     # For stochastic Tasks, store each reward computation for each unique traversal
     if Program.task.stochastic:
@@ -256,7 +235,7 @@ def learn(sess, controller, pool, gp_controller, gp_aggregator, pinn_model, outp
 
     top_samples_per_batch = list()
     funcion_info_per_batch = list()
-    logger = StatsLogger(sess, output_file, save_summary, save_all_epoch, hof, save_pareto_front,
+    logger = StatsLogger( output_file, save_summary, save_all_epoch, hof, save_pareto_front,
                          save_positional_entropy, save_top_samples_per_batch, save_cache,
                          save_cache_r_min, save_freq, save_token_count, save_rewards, save_all_rewards)
 
@@ -301,7 +280,7 @@ def learn(sess, controller, pool, gp_controller, gp_aggregator, pinn_model, outp
 
         # actions, obs, priors = controller.sample(batch_size)
         actions, obs, priors, lenghts, finished = controller.debug(batch_size)
-        
+        actions = actions.numpy()
         programs = [from_tokens(a) for a in actions]
         
         nevals += batch_size
@@ -552,7 +531,12 @@ def learn(sess, controller, pool, gp_controller, gp_aggregator, pinn_model, outp
         # Compute sequence lengths
         lengths = np.array([min(len(p.traversal), controller.max_length)
                             for p in p_train], dtype=np.int32)
-
+        
+        # transfer to Tensor
+        lengths = torch.tensor(lengths)
+        actions = torch.tensor(actions)
+        r_train = torch.tensor(r_train)
+        on_policy = torch.tensor(on_policy)
         # Create the Batch
         sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
                               lengths=lengths, rewards=r_train, on_policy=on_policy)
@@ -562,7 +546,7 @@ def learn(sess, controller, pool, gp_controller, gp_aggregator, pinn_model, outp
             # priority_queue.push_best(sampled_batch, programs)
             # import pdb;pdb.set_trace()
             priority_queue.push_batch(sampled_batch, programs)
-            pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
+            pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size, make_tensor=True)
         else:
             pqt_batch = None
 

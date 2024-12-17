@@ -12,7 +12,6 @@ from time import time
 from datetime import datetime
 
 import numpy as np
-import tensorflow as tf
 import commentjson as json
 
 from dso.task import set_task
@@ -21,7 +20,7 @@ from dso.train import learn
 from dso.prior import make_prior
 from dso.program import Program
 from dso.config import load_config
-from dso.tf_state_manager import make_state_manager as manager_make_state_manager
+from dso.state_manager import make_state_manager as manager_make_state_manager
 
 class DeepSymbolicOptimizer():
     """

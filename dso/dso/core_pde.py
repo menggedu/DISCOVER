@@ -11,7 +11,6 @@ from time import time
 from datetime import datetime
 import logging
 import numpy as np
-import tensorflow as tf
 import commentjson as json
 import torch
 from scipy.stats import pearsonr
@@ -22,14 +21,14 @@ from dso.train import learn
 from dso.prior import make_prior
 from dso.program import Program,from_str_tokens,from_tokens
 from dso.config import load_config
-from dso.tf_state_manager import make_state_manager as manager_make_state_manager
+from dso.state_manager import make_state_manager as manager_make_state_manager
 from dso.core import DeepSymbolicOptimizer
 from dso.pinn import PINN_model
 from dso.utils import safe_merge_dicts
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 
-class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
+class DeepSymbolicOptimizer_PDE():
     """
     Deep symbolic optimization model. Includes model hyperparameters and
     training configuration.
@@ -54,19 +53,47 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
         self.set_config(config, pde_config)
         _, file_name = os.path.split(config)
         self.job_name = file_name.split('.j')[0]
-        self.sess = None
 
+    def make_pool_and_set_task(self):
+        # Create the pool and set the Task for each worker
+
+        # Set complexity and const optimizer here so pool can access them
+        # Set the complexity function
+        complexity = self.config_training["complexity"]
+        Program.set_complexity(complexity)
+        
+        default_terms = self.config_training["default_terms"]
+        # import pdb;pdb.set_trace()
+        Program.set_default_terms(default_terms)
+        # Set the constant optimizer
+        const_optimizer = self.config_training["const_optimizer"]
+        const_params = self.config_training["const_params"]
+        const_params = const_params if const_params is not None else {}
+        Program.set_const_optimizer(const_optimizer, **const_params)
+
+        pool = None
+        n_cores_batch = self.config_training.get("n_cores_batch")
+        if n_cores_batch is not None:
+            if n_cores_batch == -1:
+                n_cores_batch = cpu_count()
+            if n_cores_batch > 1:
+                pool = Pool(n_cores_batch,
+                            initializer=set_task,
+                            initargs=(self.config_task,))
+
+        # Set the Task for the parent process
+        set_task(self.config_task)
+
+        return pool
+    
     def setup(self, ):
 
         # Clear the cache and reset the compute graph
         Program.clear_cache()
-        tf.reset_default_graph()
 
         # Generate objects needed for training and set seeds
         self.pool = self.make_pool_and_set_task()
         self.set_seeds() # Must be called _after_ resetting graph and _after_ setting task
-        self.sess = tf.Session()
-
         # Save complete configuration file
         self.output_file = self.make_output_file()
         self.save_config()
@@ -75,7 +102,7 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
         self.prior = self.make_prior()
         self.state_manager = self.make_state_manager()
         self.controller = self.make_controller()
-        self.gp_controller = self.make_gp_controller()
+        self.gp_controller = None
         self.denoise_pinn = self.make_pinn_model()
         self.gp_aggregator = self.make_gp_aggregator()
         
@@ -85,15 +112,12 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
         if clear_cache:
             Program.clear_cache()
         
-        tf.reset_default_graph()
 
         if new_seed is not None:
             self.set_seeds(new_seed) # Must be called _after_ resetting graph and _after_ setting task
             
-        self.sess = tf.Session()
         if reset_controller:
             self.controller = self.make_controller()
-        self.gp_controller = self.make_gp_controller()
         
     def pretrain(self):
         # pretrain for pinn with only obeservations
@@ -117,7 +141,7 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
         discovering process
         """
         if eq_num == 1:
-            result = learn(self.sess,
+            result = learn(
                         self.controller,
                         self.pool,
                         self.gp_controller,
@@ -135,7 +159,7 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
             for i in range(eq_num):
                 Program.task.reset_ut(i)
                 self.output_file = file+f"_{func_repre[i]}"+".csv"
-                result = learn(self.sess,
+                result = learn(
                             self.controller,
                             self.pool,
                             self.gp_controller,
@@ -323,7 +347,7 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
         if new_seed is not None:
             shifted_seed+=new_seed
         # Set the seeds using the shifted seed
-        tf.set_random_seed(shifted_seed)
+
         np.random.seed(shifted_seed)
         random.seed(shifted_seed)
         torch.random.manual_seed(shifted_seed)
@@ -352,23 +376,12 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
     
     def make_controller(self):
         # import pdb;pdb.set_trace()
-        controller = Controller(self.sess,
+        controller = Controller(
                                 self.prior,
                                 self.state_manager,
                                 **self.config_controller)
         return controller
 
-    def make_gp_controller(self):
-        if self.config_gp_meld.pop("run_gp_meld", False):
-            from dso.gp.gp_controller import GPController
-            gp_controller = GPController(self.prior,
-                                         self.pool,
-                                         **self.config_gp_meld)
-        else:
-            gp_controller = None
-            
-            
-        return gp_controller
 
     def make_gp_aggregator(self):
         if self.config_gp_agg.pop("run_gp_agg", False):
@@ -408,15 +421,3 @@ class DeepSymbolicOptimizer_PDE(DeepSymbolicOptimizer):
                                    "dso_{}_{}.csv".format(task_name, seed))
 
         return output_file
-
-    def save(self, save_path):
-
-        saver = tf.train.Saver()
-        saver.save(self.sess, save_path)
-
-    def load(self, load_path):
-
-        if self.sess is None:
-            self.setup()
-        saver = tf.train.Saver()
-        saver.restore(self.sess, load_path)

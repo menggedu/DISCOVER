@@ -4,7 +4,7 @@ import heapq
 from collections import namedtuple
 
 import numpy as np
-
+import torch
 
 Batch = namedtuple(
     "Batch", ["actions", "obs", "priors", "lengths", "rewards", "on_policy"])
@@ -63,7 +63,6 @@ def get_samples(batch, key):
     batch : Batch
         Sub-Batch with samples from the given indices.
     """
-
     batch = Batch(
         actions=batch.actions[key],
         obs=batch.obs[key],
@@ -376,15 +375,15 @@ class ProgramQueueMixin():
         program = programs[i]
         self.push_sample(sample, program)
 
-    def sample_batch(self, sample_size):
+    def sample_batch(self, sample_size, make_tensor=False):
         """Randomly select items from the queue and return them as a Batch."""
 
         assert len(self.heap) > 0, "Cannot sample from an empty queue."
         samples = [sample for (id_, sample) in self.random_sample(sample_size)]
-        batch = self._make_batch(samples)
+        batch = self._make_batch(samples, make_tensor)
         return batch
 
-    def _make_batch(self, samples):
+    def _make_batch(self, samples, make_tensor=True):
         """Turns a list of samples into a Batch."""
 
         actions = np.stack([s.actions for s in samples], axis=0)
@@ -392,7 +391,14 @@ class ProgramQueueMixin():
         priors = np.stack([s.priors for s in samples], axis=0)
         lengths = np.array([s.lengths for s in samples], dtype=np.int32)
         rewards = np.array([s.rewards for s in samples], dtype=np.float32)
-        on_policy = np.array([s.on_policy for s in samples], dtype=np.bool)
+        on_policy = np.array([s.on_policy for s in samples], dtype=np.bool_)
+        if make_tensor:
+            actions = torch.tensor(actions)
+            obs = torch.tensor(obs)
+            priors = torch.tensor(priors)
+            lengths = torch.tensor(lengths)
+            rewards = torch.tensor(rewards)
+            on_policy = torch.tensor(on_policy)
         batch = Batch(actions=actions, obs=obs, priors=priors,
                       lengths=lengths, rewards=rewards, on_policy=on_policy)
         return batch
